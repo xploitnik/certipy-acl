@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pfx
+*.crt
+*.key
+*.cer
+*.der
+*.log
+
+# Envs
+certipy-acl-env/
+venv/
+.env
+
+# Build
+dist/
+build/
+*.egg-info/
