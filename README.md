@@ -28,6 +28,7 @@ source certipy-acl-env/bin/activate
 ### Install Dependencies
 
 ```bash
+pip install ldap3 impacket
 pip install ldap3 impacket pyasn1 pyasn1-modules
 ```
 
