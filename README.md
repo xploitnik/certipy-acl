@@ -63,7 +63,6 @@ certipy-acl/
 
 ```bash
 cd /home/xpl0itnik/certipy/certipy-acl
-source certipy-acl-env/bin/activate
 ```
 
 ---
