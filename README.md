@@ -1,6 +1,15 @@
+
 Custom Certipy ACL module with real LDAP ACE parsing using ldap3 and impacket.
 
 This tool is designed for red teamers and advanced CTF players who want to go beyond BloodHound and enumerate real access rights across Active Directory objects — directly from LDAP.
+
+⚠️ **Work In Progress**
+
+This tool is still under active development.  
+Some features and output formatting are incomplete or experimental.  
+Expect updates, improvements, and potential breaking changes.
+
+Your feedback and contributions are highly appreciated to help make this tool better!
 
 Usage  
 python3 -m certipy_tool.certipy \
@@ -29,6 +38,37 @@ ResetPassword
 and more  
 Prints ACE types, access masks, and associated SIDs for auditing  
 Designed for stealthy enumeration and integration into C2/red team workflows  
+
+IMPORTANT OUTPUT NOTE 🚨
+Currently, the tool’s terminal output does not fully display all detailed ACE information such as WriteOwner and GenericAll entries. This limitation is known and actively being worked on.
+
+💾 HEADS UP: The raw output can be quite large and complex, but don’t worry — you can simply copy & paste it into ChatGPT 🤖 or similar AI tools for deeper analysis and to extract critical ACL insights.
+
+Using ChatGPT to parse this data helps reveal permissions that might be truncated or hidden in the terminal view.
+
+
+## PARSING STRATEGY AND TIPS
+
+When working with large LDAP ACL outputs, feeding the entire raw data to ChatGPT or other tools can be overwhelming.
+
+A practical approach is to **extract and parse ACL blobs only for known or high-value users/groups** (for example, user accounts). This focused data can be easier to analyze and faster to process.
+
+### PROS OF PARSING BY KNOWN USERS’ ACL BLOBS:
+- Smaller, more manageable data chunks  
+- Faster parsing and clearer insights on critical targets  
+- Easier identification of permissions like WriteOwner and GenericAll  
+
+### CONS TO CONSIDER:
+- You may miss ACEs assigned to other objects that affect permissions indirectly (such as nested groups or delegated OUs)  
+- Privilege escalation paths sometimes rely on ACLs from less obvious objects  
+
+### RECOMMENDATION:
+Start by parsing ACL data for your known targets, then gradually expand the scope to other relevant objects. Combining focused and broader parsing helps avoid missing critical permissions while keeping analysis manageable.
+
+---
+
+Using this strategy, you can incrementally build a comprehensive view of effective permissions without overwhelming your parsing tools or yourself.
+
 
 Roadmap  
 --json output for automation  
@@ -98,6 +138,32 @@ Suggestions for Use
 
 - Use output to identify high-value escalation targets such as objects where you have WriteOwner or GenericAll rights.
 
+Important Note About Output and Collaboration
+
+Currently, the tool’s terminal output does not fully display all the detailed ACE information we are most interested in, such as precise WriteOwner and GenericAll entries.
+
+This limitation is known and actively being worked on.
+
+To work around this:
+
+- Users can export the raw tool output and parse it with ChatGPT or other tools for deeper analysis.
+
+- This approach helps reveal the critical ACL data that may be truncated or omitted in standard terminal views.
+
+Why is this public?
+
+I released this tool publicly to encourage collaboration and collective problem solving.
+
+Parsing LDAP ACLs is complex, and improving the tool requires community input.
+
+If you are interested in Active Directory security, please try the tool, share feedback, or contribute fixes.
+
+Together, we can enhance the accuracy, filtering, and usability of this ACL enumeration utility.
+
+Your support will accelerate the development and help all red teamers and CTF players benefit from better ACL insights!
+
+Thank you for your interest and contributions.
+
 Contributing
 
 This project is open-source and in early development.
@@ -135,6 +201,5 @@ Built as part of a hands-on journey into Active Directory exploitation, stealth 
 
 “Why wait for BloodHound’s next sync cycle...  
 when you can see the ACLs right now?”
-
 
     
