@@ -1,43 +1,55 @@
+# certipy-acl
 
-Custom Certipy ACL module with real LDAP ACE parsing using ldap3 and impacket.
+🛡️ Custom Certipy ACL module with real LDAP ACE parsing using ldap3 and impacket.
 
 This tool is designed for red teamers and advanced CTF players who want to go beyond BloodHound and enumerate real access rights across Active Directory objects — directly from LDAP.
 
-⚠️ **Work In Progress**
+---
 
-This tool is still under active development.  
-Some features and output formatting are incomplete or experimental.  
+⚠️ Work In Progress
+
+This tool is still under active development.
+Some features and output formatting are incomplete or experimental.
 Expect updates, improvements, and potential breaking changes.
 
 Your feedback and contributions are highly appreciated to help make this tool better!
 
-Usage  
-python3 -m certipy_tool.certipy \
-  acl -u 'user@domain.local' \
-  -p 'password123' \
-  -target domain.local \
-  -dc-ip 10.10.10.10
+---
 
-Dependencies  
-Install with pip:  
-pip install ldap3 impacket  
+## 🚀 Usage
 
-Tested with:  
-Python 3.11+  
-ldap3 ≥ 2.9  
-impacket ≥ 0.11.0  
+python3 -m certipy_tool.certipy acl -u 'user@domain.local' -p 'password123' -target domain.local -dc-ip 10.10.10.10
 
-What It Does  
-Performs authenticated LDAP bind using NTLM  
-Requests and parses nTSecurityDescriptor from all AD objects  
-Decodes DACLs into meaningful permissions:  
-GenericAll  
-WriteOwner  
-WriteDACL  
-ResetPassword  
-and more  
-Prints ACE types, access masks, and associated SIDs for auditing  
-Designed for stealthy enumeration and integration into C2/red team workflows  
+---
+
+## 📦 Dependencies
+
+Install with pip:
+
+pip install ldap3 impacket
+
+Tested with:
+
+- Python 3.11+
+- ldap3 ≥ 2.9
+- impacket ≥ 0.11.0
+
+---
+
+## 🧠 What It Does
+
+- Performs authenticated LDAP bind using NTLM
+- Requests and parses nTSecurityDescriptor from all AD objects
+- Decodes DACLs into meaningful permissions:
+  - GenericAll
+  - WriteOwner
+  - WriteDACL
+  - ResetPassword
+  - and more
+- Prints ACE types, access masks, and associated SIDs for auditing
+- Designed for stealthy enumeration and integration into C2/red team workflows
+
+---
 
 IMPORTANT OUTPUT NOTE 🚨
 Currently, the tool’s terminal output does not fully display all detailed ACE information such as WriteOwner and GenericAll entries. This limitation is known and actively being worked on.
