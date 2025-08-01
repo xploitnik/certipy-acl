@@ -56,7 +56,9 @@ A practical approach is to **extract and parse ACL blobs only for known or high-
 ### PROS OF PARSING BY KNOWN USERS’ ACL BLOBS:
 - Smaller, more manageable data chunks  
 - Faster parsing and clearer insights on critical targets  
-- Easier identification of permissions like WriteOwner and GenericAll  
+- Easier identification of permissions like WriteOwner and GenericAll
+- <img width="3801" height="916" alt="image" src="https://github.com/user-attachments/assets/7d05b3b3-9549-44ec-a006-2cda2cccfca4" />
+
 
 ### CONS TO CONSIDER:
 - You may miss ACEs assigned to other objects that affect permissions indirectly (such as nested groups or delegated OUs)  
