@@ -39,8 +39,6 @@ Tested with:
 ## 🐍 Python Environment Setup
 
 To get started, create and activate a virtual environment, then install dependencies:
-
-```bash
 python3 -m venv certipy-acl-env
 source certipy-acl-env/bin/activate
 pip install ldap3 impacket
@@ -48,6 +46,7 @@ apt install build-essential python3-dev libssl-dev libffi-dev
 pip install git+https://github.com/fortra/impacket.git
 
 ---
+
 
 ## 🧠 What It Does
 
