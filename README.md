@@ -1,265 +1,234 @@
-# certipy-acl
 
-🛡️ Custom Certipy ACL module with real LDAP ACE parsing using ldap3 and impacket.
 
-This tool is designed for red teamers and advanced CTF players who want to go beyond BloodHound and enumerate real access rights across Active Directory objects — directly from LDAP.
+    
+# 🛡️ Certipy ACL Tool — Setup & Usage Guide
 
----
-
-⚠️ Work In Progress
-
-This tool is still under active development.
-Some features and output formatting are incomplete or experimental.
-Expect updates, improvements, and potential breaking changes.
-
-Your feedback and contributions are highly appreciated to help make this tool better!
+This tool silently binds to LDAP and parses Active Directory security descriptors (DACLs), decoding Access Control Entries (ACEs) for privilege escalation insights.
 
 ---
 
-## 🚀 Usage
+## 1. Clone the Repository
 
-python3 -m certipy_tool.certipy acl -u 'user@domain.local' -p 'password123' -target domain.local -dc-ip 10.10.10.10
-
----
-
-## 📦 Dependencies
-
-Install with pip:
-
-pip install ldap3 impacket
-
-Tested with:
-
-- Python 3.11+
-- ldap3 ≥ 2.9
-- impacket ≥ 0.11.0
+```bash
+git clone https://github.com/xploitnik/certipy-acl.git
+cd certipy-acl
+```
 
 ---
 
-## 🐍 Python Environment Setup
+## 2. Create & Activate a Python Virtual Environment
 
-To get started, create and activate a virtual environment, then install dependencies:
+We strongly recommend isolating your environment:
+
+```bash
 python3 -m venv certipy-acl-env
 source certipy-acl-env/bin/activate
-pip install ldap3 impacket
-apt install build-essential python3-dev libssl-dev libffi-dev
-pip install git+https://github.com/fortra/impacket.git
+```
+
+### Install Dependencies
+
+```bash
+pip install ldap3 impacket pyasn1 pyasn1-modules
+```
 
 ---
 
+## 3. Fix Folder Structure (One-Time Setup)
+
+The Python files must live inside a `certipy_tool/` package folder:
+
+```bash
+mkdir certipy_tool
+mv *.py certipy_tool/
+touch certipy_tool/__init__.py
+```
+
+Final structure should look like:
+
+```
+certipy-acl/
+├── certipy_tool/
+│   ├── auth.py
+│   ├── parse_acl.py
+│   ├── __main__.py
+│   └── __init__.py
+├── README.md
+├── LICENSE
+```
+
+---
+
+## 4. Navigate to Correct Directory Before Running
+
+```bash
+cd /home/xpl0itnik/certipy/certipy-acl
+source certipy-acl-env/bin/activate
+```
+
+---
+
+## 5. Run the Tool
+
+### Show Help
+
+```bash
+python3 -m certipy_tool ac
+python3 -m certipy_tool ac --help
+```
+
+---
+
+## 🧪 Example Usage (Certified HTB)
+
+```bash
+python3 -m certipy_tool acl \
+  -u 'judith.mader@certified.htb' \
+  -p 'judith09' \
+  -target certified.htb \
+  -dc-ip 10.129.231.186
+```
+
+---
+
+## 🌐 Global Usage
+
+```bash
+python3 -m certipy_tool acl \
+  -u '<user>@<domain>' \
+  -p '<password>' \
+  -target <fqdn or IP> \
+  -dc-ip <domain controller IP>
+```
+
+This command binds to LDAP, retrieves security descriptors for directory objects, and decodes DACLs to reveal:
+- WriteOwner
+- WriteDACL
+- GenericWrite
+- GenericAll
+
+---
 
 ## 🧠 What It Does
 
-- Performs authenticated LDAP bind using NTLM
-- Requests and parses nTSecurityDescriptor from all AD objects
-- Decodes DACLs into meaningful permissions:
+- Authenticated LDAP bind using NTLM
+- Retrieves `nTSecurityDescriptor` from AD objects
+- Decodes DACLs for:
   - GenericAll
   - WriteOwner
   - WriteDACL
   - ResetPassword
-  - and more
-- Prints ACE types, access masks, and associated SIDs for auditing
-- Designed for stealthy enumeration and integration into C2/red team workflows
+- Prints ACE types, access masks, and SIDs
 
 ---
 
-IMPORTANT OUTPUT NOTE 🚨
-Currently, the tool’s terminal output does not fully display all detailed ACE information such as WriteOwner and GenericAll entries. This limitation is known and actively being worked on.
+## ⚠️ Output Notes
 
-💾 HEADS UP: The raw output can be quite large and complex, but don’t worry — you can simply copy & paste it into ChatGPT 🤖 or similar AI tools for deeper analysis and to extract critical ACL insights.
+> Terminal output may **not show all ACEs** like `WriteOwner` or `GenericAll`.  
 
-Using ChatGPT to parse this data helps reveal permissions that might be truncated or hidden in the terminal view.
+To fully decode raw blobs:
 
-
-## PARSING STRATEGY AND TIPS
-
-When working with large LDAP ACL outputs, feeding the entire raw data to ChatGPT or other tools can be overwhelming.
-
-A practical approach is to **extract and parse ACL blobs only for known or high-value users/groups** (for example, user accounts). This focused data can be easier to analyze and faster to process.
-
-### PROS OF PARSING BY KNOWN USERS’ ACL BLOBS:
-- Smaller, more manageable data chunks  
-- Faster parsing and clearer insights on critical targets  
-- Easier identification of permissions like WriteOwner and GenericAll
-- ## Example Raw Output
-
-When querying ACLs from LDAP, the tool retrieves raw security descriptor data like this (hexadecimal):
- <img width="3801" height="916" alt="image" src="https://github.com/user-attachments/assets/7d05b3b3-9549-44ec-a006-2cda2cccfca4" />
- 
-Due to the complexity and length of this data, it’s difficult to interpret directly in the terminal.  
-
-This raw data is complex and not human-readable directly. However, after decoding and parsing with the tool (and optionally with ChatGPT), you can extract meaningful ACE entries such as:
-<img width="644" height="155" alt="image" src="https://github.com/user-attachments/assets/fefb0f27-4016-44f1-8de8-2716c25784ab" />
-
-This output reveals which users or groups have critical permissions like WriteOwner or GenericAll, which are essential for privilege escalation analysis.
-
-NOTE:
-The ACL entries shown correspond to the permissions the user running the tool has visibility to. In other words, these are the critical rights (like WriteOwner or GenericAll) granted to or effective for your authenticated user context. Permissions outside your user’s visibility or scope will not appear in the output.
+- Copy the output and **paste into ChatGPT or CyberChef**
+- Use `--resolve-sids` (coming soon) to get readable user/group names
+- Export hex blobs to file and analyze manually
 
 ---
 
-### Why this matters
+## 🔍 Parsing Strategy
 
-This raw hexadecimal data encodes all the Access Control Entries (ACEs) for the object’s ACL, including permissions like `WriteOwner`, `GenericAll`, and others that are critical for privilege escalation analysis.
+Instead of parsing all ACLs:
 
----
+### 🎯 Focus on high-value objects:
 
-### How to work with it
+- Known users or groups
+- Admin accounts
+- Management units
 
-- Export this raw output to a file  
-- Use tools or scripts (or AI like ChatGPT) to parse and decode the hex into human-readable permissions  
-- Focus on objects and users of interest to reduce data volume  
+### ✅ Pros:
+- Smaller outputs
+- Faster parsing
+- Focus on escalation targets
 
-This approach helps reveal the actual permissions hidden inside this opaque data.
-
----
-
-*Screenshot above shows a real raw security descriptor hex blob returned by the tool.*
-
-
-
-### CONS TO CONSIDER:
-- You may miss ACEs assigned to other objects that affect permissions indirectly (such as nested groups or delegated OUs)  
-- Privilege escalation paths sometimes rely on ACLs from less obvious objects  
-
-### RECOMMENDATION:
-Start by parsing ACL data for your known targets, then gradually expand the scope to other relevant objects. Combining focused and broader parsing helps avoid missing critical permissions while keeping analysis manageable.
+### ⚠️ Cons:
+- Might miss nested group permissions or delegated rights
 
 ---
 
-Using this strategy, you can incrementally build a comprehensive view of effective permissions without overwhelming your parsing tools or yourself.
+## 🔓 Example Raw Output
 
+Hex returned from LDAP:
 
-Roadmap  
---json output for automation  
-SID-to-name resolution (--resolve-sids)  
-Object filtering: --only-users, --only-groups  
-Export to BloodHound-compatible format  
-Modular integration with Shadow Credentials attack chains  
+```
+0100048c000000000000000000000000140000000400140621000000...
+```
 
-Project Structure
+Decoded output shows:
 
-certipy-acl/  
-├── certipy_tool/             # Main Python package folder  
-│   ├── __init__.py           # Package initializer (can be empty)  
-│   ├── __main__.py           # Main CLI entrypoint; parses arguments and runs the tool  
-│   ├── auth.py               # Handles LDAP connection and fetching raw ACL data  
-│   └── parse_acl.py          # Parses and formats the LDAP ACE data for output  
-├── LICENSE                   # License file describing usage terms  
-├── README.md                 # Main documentation and usage instructions  
-└── .gitignore                # Git ignore rules  
+```text
+[ACL] CN=Management,CN=Users,DC=certified,DC=htb
+  [ACE] Type: ACCESS_ALLOWED_OBJECT_ACE_TYPE, Mask: 0x80000, SID: S-1-5-21-...
+    [+] WriteOwner
+```
 
-Details
+---
 
-- certipy_tool/__main__.py  
-  This is the main script executed when you run the tool via Python’s -m flag. It handles command-line arguments and orchestrates the process.
+## 🔧 Project Structure
 
-- certipy_tool/auth.py  
-  Connects to the LDAP server using provided credentials, performs the bind, and retrieves the security descriptors (nTSecurityDescriptor) containing ACL information.
+```
+certipy-acl/
+├── certipy_tool/
+│   ├── auth.py
+│   ├── parse_acl.py
+│   ├── __main__.py
+│   └── __init__.py
+├── LICENSE
+├── README.md
+├── .gitignore
+```
 
-- certipy_tool/parse_acl.py  
-  Parses the raw ACLs retrieved from LDAP into human-readable ACE entries, filtering for important permissions such as WriteOwner and GenericAll.
+---
 
-- LICENSE  
-  Defines how this tool can be used, shared, and contributed to.
+## 📈 Roadmap
 
-- README.md  
-  Provides usage instructions, dependencies, roadmap, and author information.
+- ✅ ACE parsing (WriteOwner, GenericAll, etc.)
+- 🔜 `--resolve-sids` flag
+- 🔜 Output in JSON
+- 🔜 Filters: `--only-users`, `--only-writeowner`, etc.
+- 🔜 Shadow credentials integration
+- 🔜 BloodHound-compatible export
 
-- .gitignore  
-  Specifies files and folders for Git to ignore (e.g., virtual environments, caches).
+---
 
-Handling Output and Data Size
+## 🤝 Contributing
 
-LDAP ACL data can be very large depending on the size of the Active Directory environment you are querying.
+1. Fork the repo  
+2. Create a feature branch  
+3. Commit & push your changes  
+4. Open a pull request  
+5. Share how it helps!
 
-To help manage this:
+---
 
-- Use filtering flags (planned or implemented) such as --only-writeowner or --only-genericall to reduce noise.
+## 📢 Why This Tool?
 
-- Redirect output to a file for easier analysis, for example:  
-  python3 -m certipy_tool.certipy acl -u user@domain -p pass -target domain.local -dc-ip 10.10.10.10 > acl_output.txt
+BloodHound is powerful — but noisy and overkill in some situations.  
+This tool is for red teamers, hackers, and CTFers who want:
 
-- JSON output support (planned) will enable automated parsing and integration with other tools.
+- 🔇 Stealth
+- 🧠 Precision
+- 🔍 Real DACL insight
 
-Important
+> “Why wait for BloodHound’s next sync cycle...  
+> when you can see the ACLs right now?”
 
-This tool is currently primitive and designed as a starting point for advanced users.
+---
 
-Contributions to improve filtering, performance, and output formatting are highly welcome.
+## 🧑‍💻 Author
 
-Feel free to submit issues or pull requests on GitHub.
+Created by [@xploitnik](https://github.com/xploitnik)  
+Built during hands-on AD red team training and real-world enumeration challenges.
 
-Suggestions for Use
+MIT License (or custom Red Team license — TBD)
 
-- Start with smaller scopes or filtered queries to avoid overwhelming output.
+---
 
-- Combine with other enumeration tools for a comprehensive AD security assessment.
-
-- Use output to identify high-value escalation targets such as objects where you have WriteOwner or GenericAll rights.
-
-Important Note About Output and Collaboration
-
-Currently, the tool’s terminal output does not fully display all the detailed ACE information we are most interested in, such as precise WriteOwner and GenericAll entries.
-
-This limitation is known and actively being worked on.
-
-To work around this:
-
-- Users can export the raw tool output and parse it with ChatGPT or other tools for deeper analysis.
-
-- This approach helps reveal the critical ACL data that may be truncated or omitted in standard terminal views.
-
-Why is this public?
-
-I released this tool publicly to encourage collaboration and collective problem solving.
-
-Parsing LDAP ACLs is complex, and improving the tool requires community input.
-
-If you are interested in Active Directory security, please try the tool, share feedback, or contribute fixes.
-
-Together, we can enhance the accuracy, filtering, and usability of this ACL enumeration utility.
-
-Your support will accelerate the development and help all red teamers and CTF players benefit from better ACL insights!
-
-Thank you for your interest and contributions.
-
-Contributing
-
-This project is open-source and in early development.
-
-Contributions are very welcome to help improve:
-
-- Parsing accuracy and completeness  
-- Output formatting and readability  
-- Performance and filtering capabilities  
-- Adding new features like JSON output or BloodHound export  
-
-How to contribute
-
-1. Fork the repository  
-2. Create a feature branch (git checkout -b feature/my-feature)  
-3. Commit your changes (git commit -m 'Add some feature')  
-4. Push to the branch (git push origin feature/my-feature)  
-5. Open a Pull Request  
-
-For major changes, please open an issue first to discuss your idea.
-
-Reporting issues
-
-Please use GitHub Issues to report bugs or request features.
-
-Thank you for helping make this tool better!
-
-License  
-To be determined — consider MIT, Red Team license, or custom clause.  
-
-Author  
-Maintained by @xploitnik  
-
-Built as part of a hands-on journey into Active Directory exploitation, stealth enumeration, and custom red team tooling. Inspired by gaps in existing tools and driven by a mindset to “see the ACLs, not just guess them.”
-
-“Why wait for BloodHound’s next sync cycle...  
-when you can see the ACLs right now?”
-
-    
+Happy hacking! 🎯
