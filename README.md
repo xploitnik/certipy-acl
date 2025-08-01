@@ -57,7 +57,33 @@ A practical approach is to **extract and parse ACL blobs only for known or high-
 - Smaller, more manageable data chunks  
 - Faster parsing and clearer insights on critical targets  
 - Easier identification of permissions like WriteOwner and GenericAll
-- <img width="3801" height="916" alt="image" src="https://github.com/user-attachments/assets/7d05b3b3-9549-44ec-a006-2cda2cccfca4" />
+- ## Example Raw Output
+
+When querying ACLs from LDAP, the tool retrieves raw security descriptor data like this (hexadecimal):
+ <img width="3801" height="916" alt="image" src="https://github.com/user-attachments/assets/7d05b3b3-9549-44ec-a006-2cda2cccfca4" />
+ 
+Due to the complexity and length of this data, it’s difficult to interpret directly in the terminal.  
+
+---
+
+### Why this matters
+
+This raw hexadecimal data encodes all the Access Control Entries (ACEs) for the object’s ACL, including permissions like `WriteOwner`, `GenericAll`, and others that are critical for privilege escalation analysis.
+
+---
+
+### How to work with it
+
+- Export this raw output to a file  
+- Use tools or scripts (or AI like ChatGPT) to parse and decode the hex into human-readable permissions  
+- Focus on objects and users of interest to reduce data volume  
+
+This approach helps reveal the actual permissions hidden inside this opaque data.
+
+---
+
+*Screenshot above shows a real raw security descriptor hex blob returned by the tool.*
+
 
 
 ### CONS TO CONSIDER:
