@@ -1,98 +1,81 @@
-## 📥 Clone the Repository
+Certipy ACL Tool — Setup & Usage Guide (Flat Version)
 
-Open your terminal and run:
+This tool silently binds to LDAP and parses Active Directory security descriptors (DACLs), decoding Access Control Entries (ACEs) for privilege escalation insights.
 
-git clone https://github.com/xploinik/certipy-acl.git  
+1. Clone the Repository
+------------------------
+git clone https://github.com/xploitnik/certipy-acl.git
 cd certipy-acl
 
-This creates a local folder named `certipy-acl` and navigates into it.
+2. Create & Activate a Python Virtual Environment
+-------------------------------------------------
+We strongly recommend isolating your environment.
 
----
-
-## 📂 Verify Folder Structure
-
-Check the contents of the root folder:
-
-ls
-
-You should see:
-
-certipy_tool  LICENSE  README.md  .gitignore
-
-List the main Python package folder contents:
-
-ls certipy_tool
-
-Expected files:
-
-__init__.py  __main__.py  auth.py  parse_acl.py
-
----
-
-## 🐍 Setup Python Environment and Install Dependencies
-
-Create and activate a virtual environment:
-
-python3 -m venv certipy-acl-env  
+python3 -m venv certipy-acl-env
 source certipy-acl-env/bin/activate
 
-Install required Python packages:
+Then install the required dependencies:
 
 pip install ldap3 impacket
 
-If you are on Debian/Ubuntu, you might also need:
+pip install ldap3 impacket pyasn1 pyasn1-modules
 
-sudo apt install build-essential python3-dev libssl-dev libffi-dev
+3. Fix the Folder Structure (One-Time Setup)
+--------------------------------------------
+The Python files must live inside a `certipy_tool/` package folder.
 
-To install the latest Impacket version (optional):
+mkdir certipy_tool
+mv *.py certipy_tool/
+touch certipy_tool/__init__.py
 
-pip install git+https://github.com/fortra/impacket.git
+Final structure should now look like:
 
----
+certipy-acl/
+├── certipy_tool/
+│   ├── auth.py
+│   ├── parse_acl.py
+│   ├── __main__.py
+│   └── __init__.py
+├── README.md
+├── LICENSE
 
-## ▶️ Run the Tool
+4. Navigate to the Correct Path Before Running
+----------------------------------------------
+cd /home/xpl0itnik/certipy/certipy-acl
 
-From the root folder (`certipy-acl`), execute:
+5. Run the Tool
+---------------
+Show Help:
+python3 -m certipy_tool acl
+python3 -m certipy_tool acl --help
 
-python3 -m certipy_tool.certipy acl -u 'user@domain.local' -p 'password' -target domain.local -dc-ip 10.10.10.10
+Example Usage (Certified HTB):
+python3 -m certipy_tool acl \
+  -u 'judith.mader@certified.htb' \
+  -p 'judith09' \
+  -target certified.htb \
+  -dc-ip 10.129.231.186
+ 
+ Global Usage
+------------
+python3 -m certipy_tool acl \
+  -u '<user>@<domain>' \
+  -p '<password>' \
+  -target <fqdn or IP> \
+  -dc-ip <domain controller IP>
 
-This command runs the `certipy.py` module inside the `certipy_tool` package, using your credentials and target info.
+This command binds to LDAP, retrieves security descriptors for directory objects, and decodes DACLs to reveal:
+- WriteOwner
+- WriteDACL
+- GenericWrite
+- GenericAll
 
----
+Notes
+-----
+This tool is built for:
+- Red teamers seeking silent enumeration
+- CTF players avoiding noisy tools like BloodHound
+- Researchers investigating shadow credentials or object takeovers
 
-## 🧠 What It Does
+Created by @xploitnik — powered by `ldap3`, `impacket`, and a custom Certipy ACL module.
 
-- Authenticates to LDAP using NTLM  
-- Retrieves and parses `nTSecurityDescriptor` attributes from all AD objects  
-- Decodes DACLs into detailed permissions like `WriteOwner`, `GenericAll`, and more  
-- Prints ACE types, access masks, and associated SIDs for auditing  
-- Supports integration into stealthy red team workflows  
-
----
-
-## ⚠️ Important Notes
-
-- The tool’s terminal output may **not show all detailed ACE info** (like `WriteOwner` or `GenericAll`) fully yet.  
-- Raw output can be large and complex — consider copying it into **ChatGPT 🤖** or similar tools for deeper parsing.  
-- Parsing ACL blobs for known users/groups can make analysis easier and more focused.  
-- Contributions are welcome to improve output formatting and functionality.  
-
----
-
-## 🗂 Folder Structure Summary
-
-certipy-acl/  
-├── certipy_tool/  
-│   ├── __init__.py  
-│   ├── __main__.py  
-│   ├── auth.py  
-│   └── parse_acl.py  
-├── LICENSE  
-├── README.md  
-└── .gitignore  
-
----
-
-Thank you for using **certipy-acl!**  
-For issues or contributions, please visit:  
-https://github.com/xploinik/certipy-acl
