@@ -1,24 +1,137 @@
+# certipy-acl
 
+🛡️ Custom Certipy ACL module with real LDAP ACE parsing using ldap3 and impacket.
 
-    
-# 🛡️ Certipy ACL Tool — Setup & Usage Guide
-
-This tool silently binds to LDAP and parses Active Directory security descriptors (DACLs), decoding Access Control Entries (ACEs) for privilege escalation insights.
+This tool is designed for red teamers and advanced CTF players who want to go beyond BloodHound and enumerate real access rights across Active Directory objects — directly from LDAP.
 
 ---
 
-## 1. Clone the Repository
+⚠️ Work In Progress
+
+This tool is still under active development.  
+Some features and output formatting are incomplete or experimental.  
+Expect updates, improvements, and potential breaking changes.
+
+Your feedback and contributions are highly appreciated to help make this tool better!
+
+---
+
+## 🚀 Example Usage
 
 ```bash
-git clone https://github.com/xploitnik/certipy-acl.git
-cd certipy-acl
+# Basic
+python3 -m certipy_tool.certipy acl \
+  -u 'user@domain.local' \
+  -p 'password123' \
+  -target domain.local \
+  -dc-ip 10.10.10.10
+
+# With SID resolution
+python3 -m certipy_tool.certipy acl \
+  -u 'user@domain.local' \
+  -p 'password123' \
+  -target domain.local \
+  -dc-ip 10.10.10.10 \
+  --resolve-sids
 ```
 
 ---
 
-## 2. Create & Activate a Python Virtual Environment
+## 💾 Save Output
 
-We strongly recommend isolating your environment:
+You can redirect the output to a file for further analysis or to preserve results across machine resets:
+
+```bash
+python3 -m certipy_tool.certipy acl \
+  -u 'user@domain.local' \
+  -p 'password123' \
+  -target domain.local \
+  -dc-ip 10.10.10.10 \
+  --resolve-sids > output.txt
+```
+
+Then open `output.txt` or feed it directly to ChatGPT or your parsing tools for deeper analysis!
+
+---
+
+## 📦 Dependencies
+
+Install with pip:
+
+```bash
+pip install ldap3 impacket pyasn1 pyasn1-modules
+```
+
+Tested with:
+
+- Python 3.11+
+- ldap3 ≥ 2.9
+- impacket ≥ 0.11.0
+
+---
+
+## 🧠 What It Does
+
+- Performs authenticated LDAP bind using NTLM
+- Requests and parses `nTSecurityDescriptor` from AD objects
+- Decodes DACLs into meaningful permissions:
+  - GenericAll
+  - WriteOwner
+  - WriteDACL
+  - ResetPassword
+  - and more
+- Optional SID resolution (`--resolve-sids`) to show human-readable names
+- Designed for stealthy enumeration and red team workflows
+
+---
+
+## 📋 Sample Output (With and Without `--resolve-sids`)
+
+✅ **Without `--resolve-sids`**
+```
+[ACE] Type: ACCESS_ALLOWED, Mask: 0x80000, SID: S-1-5-21-...
+  [+] WriteOwner
+```
+
+✅ **With `--resolve-sids`**
+```
+[ACE] Type: ACCESS_ALLOWED, Mask: 0x80000, SID: Management
+  [+] WriteOwner
+```
+<img width="1924" height="580" alt="image" src="https://github.com/user-attachments/assets/1aeeacd7-4287-4d30-8630-1b484509853d" />
+
+---
+
+## 🧪 Parsing Tips & Strategy
+
+Due to the volume of LDAP data, raw ACLs may be hard to interpret directly.  
+Instead:
+
+- Focus on **high-value objects** (e.g., user accounts, groups like "Management")
+- Use `--resolve-sids` to instantly decode critical SIDs
+- Use `>` to export for parsing in ChatGPT or tools
+- Search for keywords like `WriteOwner`, `GenericAll`, `ResetPassword`
+
+---
+
+## Project Structure
+
+```
+certipy-acl/
+├── certipy_tool/
+│   ├── __main__.py           # Main CLI entrypoint
+│   ├── auth.py               # LDAP logic & SID resolution
+│   └── parse_acl.py          # ACE parsing logic
+├── README.md
+├── LICENSE
+└── .gitignore
+```
+
+---
+
+## 🛠️ Setup Instructions
+
+### Create Python Virtual Environment
 
 ```bash
 python3 -m venv certipy-acl-env
@@ -28,207 +141,64 @@ source certipy-acl-env/bin/activate
 ### Install Dependencies
 
 ```bash
-pip install ldap3 impacket
 pip install ldap3 impacket pyasn1 pyasn1-modules
 ```
 
 ---
 
-## 3. Fix Folder Structure (One-Time Setup)
+## 🧱 Fix Folder Structure (One-Time Setup)
 
-The Python files must live inside a `certipy_tool/` package folder:
+If your files are not inside a `certipy_tool/` folder:
 
 ```bash
 mkdir certipy_tool
 mv *.py certipy_tool/
-touch certipy_tool/__init__.py
-```
-
-Final structure should look like:
-
-```
-certipy-acl/
-├── certipy_tool/
-│   ├── auth.py
-│   ├── parse_acl.py
-│   ├── __main__.py
-│   └── __init__.py
-├── README.md
-├── LICENSE
 ```
 
 ---
 
-## 4. Navigate to Correct Directory Before Running
+## 🔭 Roadmap
 
-```bash
-cd /home/xpl0itnik/certipy/certipy-acl
-```
-
----
-
-## 5. Run the Tool
-
-### Show Help
-
-```bash
-python3 -m certipy_tool ac
-python3 -m certipy_tool ac --help
-```
-
----
-
-## 🧪 Example Usage (Certified HTB)
-
-```bash
-python3 -m certipy_tool acl \
-  -u 'judith.mader@certified.htb' \
-  -p 'judith09' \
-  -target certified.htb \
-  -dc-ip 10.129.231.186
-```
-
----
-
-## 🌐 Global Usage
-
-```bash
-python3 -m certipy_tool acl \
-  -u '<user>@<domain>' \
-  -p '<password>' \
-  -target <fqdn or IP> \
-  -dc-ip <domain controller IP>
-```
-
-This command binds to LDAP, retrieves security descriptors for directory objects, and decodes DACLs to reveal:
-- WriteOwner
-- WriteDACL
-- GenericWrite
-- GenericAll
-
----
-
-## 🧠 What It Does
-
-- Authenticated LDAP bind using NTLM
-- Retrieves `nTSecurityDescriptor` from AD objects
-- Decodes DACLs for:
-  - GenericAll
-  - WriteOwner
-  - WriteDACL
-  - ResetPassword
-- Prints ACE types, access masks, and SIDs
-
----
-
-## ⚠️ Output Notes
-
-> Terminal output may **not show all ACEs** like `WriteOwner` or `GenericAll`.  
-
-To fully decode raw blobs:
-
-- Copy the output and **paste into ChatGPT or CyberChef**
-- Use `--resolve-sids` (coming soon) to get readable user/group names
-- Export hex blobs to file and analyze manually
-
----
-
-## 🔍 Parsing Strategy
-
-Instead of parsing all ACLs:
-
-### 🎯 Focus on high-value objects:
-
-- Known users or groups
-- Admin accounts
-- Management units
-
-### ✅ Pros:
-- Smaller outputs
-- Faster parsing
-- Focus on escalation targets
-
-### ⚠️ Cons:
-- Might miss nested group permissions or delegated rights
-
----
-
-## 🔓 Example Raw Output
-
-Hex returned from LDAP:
-
-```
-0100048c000000000000000000000000140000000400140621000000...
-```
-
-Decoded output shows:
-
-```text
-[ACL] CN=Management,CN=Users,DC=certified,DC=htb
-  [ACE] Type: ACCESS_ALLOWED_OBJECT_ACE_TYPE, Mask: 0x80000, SID: S-1-5-21-...
-    [+] WriteOwner
-```
-
----
-
-## 🔧 Project Structure
-
-```
-certipy-acl/
-├── certipy_tool/
-│   ├── auth.py
-│   ├── parse_acl.py
-│   ├── __main__.py
-│   └── __init__.py
-├── LICENSE
-├── README.md
-├── .gitignore
-```
-
----
-
-## 📈 Roadmap
-
-- ✅ ACE parsing (WriteOwner, GenericAll, etc.)
-- 🔜 `--resolve-sids` flag
-- 🔜 Output in JSON
-- 🔜 Filters: `--only-users`, `--only-writeowner`, etc.
-- 🔜 Shadow credentials integration
-- 🔜 BloodHound-compatible export
+- [x] Real LDAP ACL parsing (Done)
+- [x] SID resolution via `--resolve-sids` (Done)
+- [ ] Output to JSON
+- [ ] Filter flags: `--only-writeowner`, `--only-users`, `--only-groups`
+- [ ] BloodHound-compatible output
+- [ ] Stealth improvements for red team operations
 
 ---
 
 ## 🤝 Contributing
 
-1. Fork the repo  
-2. Create a feature branch  
-3. Commit & push your changes  
-4. Open a pull request  
-5. Share how it helps!
+Contributions welcome!
+
+### How to Contribute
+
+1. Fork this repo  
+2. Create a branch: `git checkout -b feature/my-feature`  
+3. Commit changes: `git commit -m "Add feature"`  
+4. Push: `git push origin feature/my-feature`  
+5. Open a pull request
 
 ---
 
-## 📢 Why This Tool?
+## 📣 Why this matters
 
-BloodHound is powerful — but noisy and overkill in some situations.  
-This tool is for red teamers, hackers, and CTFers who want:
+Knowing who has rights over what in AD is key to understanding escalation paths, persistence opportunities, and misconfigurations — especially for:
 
-- 🔇 Stealth
-- 🧠 Precision
-- 🔍 Real DACL insight
+- Shadow Credentials (ESC8)
+- ACL abuse (WriteOwner, WriteDACL, GenericAll)
+- User-to-user privilege escalation
+- Backdoor and beacon placements
+
+---
+
+## 📬 License & Author
+
+**Maintainer:** [@xploitnik](https://github.com/xploitnik)  
+**License:** MIT *(or custom Red Team license — TBD)*
 
 > “Why wait for BloodHound’s next sync cycle...  
-> when you can see the ACLs right now?”
+> when you can **see the ACLs right now**?”
 
----
 
-## 🧑‍💻 Author
-
-Created by [@xploitnik](https://github.com/xploitnik)  
-Built during hands-on AD red team training and real-world enumeration challenges.
-
-MIT License (or custom Red Team license — TBD)
-
----
-
-Happy hacking! 🎯
