@@ -89,12 +89,8 @@ When querying ACLs from LDAP, the tool retrieves raw security descriptor data li
 Due to the complexity and length of this data, it’s difficult to interpret directly in the terminal.  
 
 This raw data is complex and not human-readable directly. However, after decoding and parsing with the tool (and optionally with ChatGPT), you can extract meaningful ACE entries such as:
-[ACL] CN=Management,CN=Users,DC=certified,DC=htb
-  [ACE] Type: ACCESS_ALLOWED, Mask: 0x80000, SID: S-1-5-21-XXXXX-XXXXX-XXXXX-512
-    [+] WriteOwner
-  [ACE] Type: ACCESS_ALLOWED, Mask: 0x10000000, SID: S-1-5-21-XXXXX-XXXXX-XXXXX-513
-    [+] GenericAll
-
+<img width="644" height="155" alt="image" src="https://github.com/user-attachments/assets/fefb0f27-4016-44f1-8de8-2716c25784ab" />
+This output reveals which users or groups have critical permissions like WriteOwner or GenericAll, which are essential for privilege escalation analysis.
 
 ---
 
