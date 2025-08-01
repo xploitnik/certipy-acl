@@ -1,27 +1,19 @@
-from certipy_tool.auth import RIGHTS
+from .auth import RIGHTS
 
-# Define the escalation rights to filter for
-ESCALATION_RIGHTS = {
-    0x00080000,  # WriteOwner
-    0x00020000,  # WriteDACL
-    0x08000000,  # GenericAll
-    0x02000000,  # GenericWrite
-}
-
-def parse_acl_entries(entries):
+def parse_acl_entries(entries, resolver=None):
     for dn, sd in entries:
-        print(f"[ACL] {dn}")
+        print(f"\n[ACL] {dn}")
         if not hasattr(sd, "dacl") or sd.dacl is None:
             print("  [!] No DACL or ACEs present")
             continue
 
-        found_escalation = False
-
         for ace in sd.dacl.aces:
             try:
                 sid = ace['Ace']['Sid'].formatCanonical()
+                resolved_sid = resolver(sid) if resolver else sid
                 mask = ace['Ace']['Mask']
                 acetype = ace['AceType']
+
                 typename = {
                     0x00: "ACCESS_ALLOWED",
                     0x01: "ACCESS_DENIED",
@@ -29,15 +21,13 @@ def parse_acl_entries(entries):
                     0x06: "ACCESS_DENIED_OBJECT_ACE_TYPE"
                 }.get(acetype, f"UNKNOWN({acetype})")
 
-                # Check if this ACE contains any escalation rights
-                if any(mask & right for right in ESCALATION_RIGHTS):
-                    found_escalation = True
-                    print(f"  [ACE] Type: {typename}, Mask: {hex(mask)}, SID: {sid}")
-                    for bit, right in RIGHTS.items():
-                        if mask & bit:
-                            print(f"    [+] {right}")
+                print(f"  [ACE] Type: {typename}")
+                print(f"        SID: {resolved_sid}")
+                print(f"        Mask: {hex(mask)}")
+
+                for bit, right in RIGHTS.items():
+                    if mask & bit:
+                        print(f"        [+] {right}")
+
             except Exception as e:
                 print(f"  [!] Failed to parse ACE: {e}")
-
-        if not found_escalation:
-            print("  [!] No escalation rights found in DACL")
