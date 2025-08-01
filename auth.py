@@ -1,3 +1,4 @@
+
 from ldap3 import Server, Connection, ALL, NTLM
 from ldap3.protocol.microsoft import security_descriptor_control
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
@@ -57,14 +58,21 @@ class LDAPSocket:
         for entry in self.conn.entries:
             try:
                 raw_sd = entry["nTSecurityDescriptor"].raw_values[0]
-
-                # Debug print: raw security descriptor in hex
-                print(f"[DEBUG] raw_sd for {entry.entry_dn}: {raw_sd.hex()}")
-
                 sd = SR_SECURITY_DESCRIPTOR(raw_sd)
                 entries.append((entry.entry_dn, sd))
-            except Exception as e:
-                print(f"[ERROR] Failed to parse SD for {entry.entry_dn}: {e}")
+            except Exception:
                 continue
 
         return entries
+
+    def resolve_sid(self, sid):
+        sid_filter = f"(objectSid={sid})"
+        self.conn.search(
+            search_base="DC={},DC={}".format(*self.domain.split(".")),
+            search_filter=sid_filter,
+            attributes=["sAMAccountName", "distinguishedName"]
+        )
+        if self.conn.entries:
+            entry = self.conn.entries[0]
+            return str(entry["sAMAccountName"] or entry["distinguishedName"])
+        return sid  # fallback to raw SID
