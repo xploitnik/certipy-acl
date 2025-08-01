@@ -90,7 +90,11 @@ Due to the complexity and length of this data, it’s difficult to interpret dir
 
 This raw data is complex and not human-readable directly. However, after decoding and parsing with the tool (and optionally with ChatGPT), you can extract meaningful ACE entries such as:
 <img width="644" height="155" alt="image" src="https://github.com/user-attachments/assets/fefb0f27-4016-44f1-8de8-2716c25784ab" />
+
 This output reveals which users or groups have critical permissions like WriteOwner or GenericAll, which are essential for privilege escalation analysis.
+
+NOTE:
+The ACL entries shown correspond to the permissions the user running the tool has visibility to. In other words, these are the critical rights (like WriteOwner or GenericAll) granted to or effective for your authenticated user context. Permissions outside your user’s visibility or scope will not appear in the output.
 
 ---
 
