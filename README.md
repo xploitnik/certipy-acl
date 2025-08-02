@@ -1,8 +1,11 @@
-# certipy-acl
+# 🛠️ Certipy ACL — Stealthy AD Permission Enumeration
 
-🛡️ Custom Certipy ACL module with real LDAP ACE parsing using ldap3 and impacket.
+💬 This module builds directly on top of Certipy, extending the original `find`, `req`, and `auth` modules by adding stealthy LDAP ACL enumeration — a feature I found missing in most modern toolchains.
 
-This tool is designed for red teamers and advanced CTF players who want to go beyond BloodHound and enumerate real access rights across Active Directory objects — directly from LDAP.
+I kept the Certipy name to credit the original work by [@ly4k](https://github.com/ly4k) and to ensure consistency for users already familiar with the tool. This fork is meant to complement, not compete.
+
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 
 ---
 
