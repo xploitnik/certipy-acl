@@ -2,7 +2,7 @@
 
 💬 This module builds directly on top of Certipy, extending the original `find`, `req`, and `auth` modules by adding stealthy LDAP ACL enumeration — a feature I found missing in most modern toolchains.
 
-I kept the Certipy name to credit the original work by [@ly4k](https://github.com/ly4k) and to ensure consistency for users already familiar with the tool. This fork is meant to complement, not compete.
+I kept the Certipy name to credit the original work by [@ly4k](https://github.com/ly4k) and to ensure consistency for users already familiar with the tool. 👉 **This fork is meant to complement, not compete.**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
