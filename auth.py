@@ -1,4 +1,3 @@
-
 from ldap3 import Server, Connection, ALL, NTLM
 from ldap3.protocol.microsoft import security_descriptor_control
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
@@ -76,3 +75,17 @@ class LDAPSocket:
             entry = self.conn.entries[0]
             return str(entry["sAMAccountName"] or entry["distinguishedName"])
         return sid  # fallback to raw SID
+
+    def get_own_sid(self):
+        self.conn.search(
+            search_base="DC={},DC={}".format(*self.domain.split(".")),
+            search_filter=f"(sAMAccountName={self.username.split('@')[0]})",
+            attributes=["objectSid"]
+        )
+        if self.conn.entries:
+            sid = self.conn.entries[0]["objectSid"].value
+            print(f"[INFO] Current user SID: {sid}")
+            return sid
+        print("[WARN] Could not retrieve current user SID.")
+        return None
+
