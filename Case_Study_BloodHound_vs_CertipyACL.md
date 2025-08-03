@@ -6,7 +6,9 @@ Live Comparison Against BloodHound Results
 ## 🎯 Escape Two: HTB Case Study  
 ### 🔍 BloodHound Output  
 BloodHound graph confirms a direct `WriteOwner` relationship:
+
 <img width="523" height="202" alt="image" src="https://github.com/user-attachments/assets/c8e8a6cd-fbda-4ad7-8eb0-7d2a993ee0b4" />
+
 🟢 **RYAN@SEQUEL.HTB** → has WriteOwner over → **CA.SVC@SEQUEL.HTB**
 
 ---
