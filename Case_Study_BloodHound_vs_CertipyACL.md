@@ -6,7 +6,7 @@ Live Comparison Against BloodHound Results
 ## 🎯 Escape Two: HTB Case Study  
 ### 🔍 BloodHound Output  
 BloodHound graph confirms a direct `WriteOwner` relationship:
-
+<img width="523" height="202" alt="image" src="https://github.com/user-attachments/assets/c8e8a6cd-fbda-4ad7-8eb0-7d2a993ee0b4" />
 🟢 **RYAN@SEQUEL.HTB** → has WriteOwner over → **CA.SVC@SEQUEL.HTB**
 
 ---
@@ -26,7 +26,7 @@ Certipy-ACL accurately discovers the same privilege relationship identified by B
 
 ---
 
-## 🎯 Escape Four: HTB Case Study  
+## 🎯 Administrator: HTB Case Study  
 ### 🎯 Objective  
 Prove that Certipy-ACL can detect effective control rights such as `GenericAll` using real LDAP data — even without BloodHound.
 
@@ -40,8 +40,10 @@ Prove that Certipy-ACL can detect effective control rights such as `GenericAll` 
 
 ### 🔍 BloodHound Ground Truth  
 As confirmed in BloodHound:
+<img width="1100" height="459" alt="image" src="https://github.com/user-attachments/assets/37c71aa6-8ec0-4c44-b001-d80ddd2730a0" />
 
 🟢 **OLIVIA@ADMINISTRATOR.HTB** → has GenericAll over → **MICHAEL@ADMINISTRATOR.HTB**
+
 
 ---
 
