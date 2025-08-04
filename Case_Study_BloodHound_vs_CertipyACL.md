@@ -1,34 +1,33 @@
-#Before we start you may see multiple ACEs permission with Certipy-acl
-🧠 Why Certipy-ACL Shows Multiple Rights but BloodHound Shows Only One
-🔍 BloodHound
-Focuses on relationships, not full DACL breakdowns.
+## ⚠️ Before We Start: Why Certipy-ACL Shows Multiple ACE Permissions
 
-When it shows GenericAll, it's summarizing that the user has enough rights to fully control the object.
+🧠 **Why Certipy-ACL Shows Multiple Rights While BloodHound Shows Only One**
 
-It does not display all the granular rights (WriteOwner, WriteDACL, etc.) if GenericAll is present — because GenericAll already implies full control.
+### 🔍 BloodHound
+- Focuses on **relationship mapping**, not full DACL breakdowns.
+- When it shows `GenericAll`, it’s **summarizing** that the user has enough rights to fully control the object.
+- It does **not display individual rights** like `WriteOwner`, `WriteDACL`, or `GenericWrite` — even if they’re present.
+- 📌 **BloodHound picks the most powerful right** and shows that as a simplified graph edge (e.g., `GenericAll` → full control).
 
-📌 It picks the highest-level, most powerful right and shows that as the relationship in the graph.
+---
 
-🔎 Certipy-ACL
-Reads the raw DACL bitmask from LDAP.
+### 🔎 Certipy-ACL
+- Parses the **raw LDAP DACL bitmask** for every object.
+- Lists **every right explicitly granted** to the user.
+- If the bitmask includes:
+  - `0x02000000` → `GenericWrite`
+  - `0x08000000` → `GenericAll`
+  - `0x00080000` → `WriteOwner`
+  - `0x00040000` → `WriteDACL`
 
-It parses and shows every individual right granted in the Access Control Entry (ACE).
+  ...then **all of these will be shown**.
 
-So if the bitmask includes:
+- 📌 This provides **full transparency** and lets red teamers:
+  - Understand *exactly* what’s possible
+  - Choose the *least noisy* or most *targeted* exploitation path
 
-0x02000000 → GenericWrite
+---
 
-0x08000000 → GenericAll
-
-0x00080000 → WriteOwner
-
-0x00040000 → WriteDACL
-
-It will list them all — because they are all explicitly granted.
-
-📌 This is more transparent and helps attackers choose the least noisy attack path.
-
-
+✅ **Certipy-ACL is not just about knowing you can exploit something — it’s about knowing *how* you want to exploit it.**
 
 # 🧪 Certipy-ACL: Case Studies  
 Live Comparison Against BloodHound Results
