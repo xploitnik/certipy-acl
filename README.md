@@ -54,7 +54,7 @@ python3 -m certipy_tool \
 You can redirect the output to a file for further analysis or to preserve results across machine resets:
 
 ```bash
-python3 -m certipy_tool.certipy acl \
+python3 -m certipy_tool \
   -u 'user@domain.local' \
   -p 'password123' \
   -target domain.local \
