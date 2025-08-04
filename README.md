@@ -6,7 +6,6 @@ I kept the Certipy name to credit the original work by [@ly4k](https://github.co
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-
 ---
 
 ⚠️ Work In Progress
@@ -88,6 +87,42 @@ Tested with:
 
 ---
 
+## ⚠️ What This Tool *Does Not* Do — by Design
+
+Certipy-ACL is focused on **stealthy and accurate LDAP enumeration**.  
+To maintain this low footprint, the tool **does not attempt to simulate or infer** Active Directory privileges like:
+
+- 🔄 `ForceChangePassword`
+- 👥 `AddMember`
+- 🔁 `WriteSPN`, `WriteUserAccountControl`
+- 🧠 Any graph-based relationship prediction
+
+These rights require **inferring logical relationships** (e.g., “User A can change the password of User B”), which demands:
+
+- ❌ Scanning every object in the domain  
+- ❌ Querying attributes like `userAccountControl`, `memberOf`, `msDS-AllowedToActOnBehalfOfOtherIdentity`  
+- ❌ Risking detection by blue teams
+
+🧱 **That’s not the mission of this tool.**
+
+Instead, Certipy-ACL is designed to:
+
+- ✅ Parse real DACLs and ACEs
+- ✅ Match only what’s *explicitly delegated* in LDAP
+- ✅ Operate **quietly and precisely**
+- ✅ Focus on rights that matter for escalation:
+  - `WriteOwner`
+  - `WriteDACL`
+  - `GenericAll`
+  - `GenericWrite`
+
+> 🧠 *Think of this tool as a sniper, not a net.*
+
+If you need simulation or inferred access paths, BloodHound remains the right tool.  
+If you want **clean, accurate insight from real delegation** — Certipy-ACL is your best ally.
+
+---
+
 ## 📋 Sample Output (With and Without `--resolve-sids`)
 
 ✅ **Without `--resolve-sids`**
@@ -124,7 +159,8 @@ certipy-acl/
 ├── certipy_tool/
 │   ├── __main__.py           # Main CLI entrypoint
 │   ├── auth.py               # LDAP logic & SID resolution
-│   └── parse_acl.py          # ACE parsing logic
+│   ├── parse_acl.py          # ACE parsing logic
+│   └── __init__.py           # Marks the folder as a package
 ├── README.md
 ├── LICENSE
 └── .gitignore
