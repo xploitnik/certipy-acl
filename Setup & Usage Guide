@@ -45,12 +45,12 @@ cd /home/xpl0itnik/certipy/certipy-acl
 
 Show Help:
 
-python3 -m certipy_tool acl
-python3 -m certipy_tool acl --help
+python3 -m certipy_tool 
+python3 -m certipy_tool --help
 
 Example Usage (Certified HTB):
 
-python3 -m certipy_tool acl \
+python3 -m certipy_tool \
   -u 'judith.mader@certified.htb' \
   -p 'judith09' \
   -target certified.htb \
@@ -58,7 +58,7 @@ python3 -m certipy_tool acl \
 
 Global Usage
 
-python3 -m certipy_tool acl \
+python3 -m certipy_tool \
   -u '<user>@<domain>' \
   -p '<password>' \
   -target <fqdn or IP> \
