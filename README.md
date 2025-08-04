@@ -18,7 +18,7 @@ Your feedback and contributions are highly appreciated to help make this tool be
 
 ### 🔹 Basic
 ```bash
-python3 -m certipy_tool.certipy acl \
+python3 -m certipy_tool.certipy \
   -u 'user@domain.local' \
   -p 'password123' \
   -target domain.local \
@@ -27,7 +27,7 @@ python3 -m certipy_tool.certipy acl \
 
 ### 🔹 With SID resolution
 ```bash
-python3 -m certipy_tool.certipy acl \
+python3 -m certipy_tool.certipy \
   -u 'user@domain.local' \
   -p 'password123' \
   -target domain.local \
@@ -37,7 +37,7 @@ python3 -m certipy_tool.certipy acl \
 
 ### 🔹 With filtering options
 ```bash
-python3 -m certipy_tool.certipy acl \
+python3 -m certipy_tool.certipy \
   -u 'user@domain.local' \
   -p 'password123' \
   -target domain.local \
