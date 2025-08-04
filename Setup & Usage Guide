@@ -3,12 +3,12 @@ Certipy ACL Tool — Setup & Usage Guide (Flat Version)
 This tool silently binds to LDAP and parses Active Directory security descriptors (DACLs), decoding Access Control Entries (ACEs) for privilege escalation insights.
 
 1. Clone the Repository
-------------------------
+
 git clone https://github.com/xploitnik/certipy-acl.git
 cd certipy-acl
 
 2. Create & Activate a Python Virtual Environment
--------------------------------------------------
+
 We strongly recommend isolating your environment.
 
 python3 -m venv certipy-acl-env
@@ -16,13 +16,11 @@ source certipy-acl-env/bin/activate
 
 Then install the required dependencies:
 
-pip install ldap3 impacket
-
 pip install ldap3 impacket pyasn1 pyasn1-modules
 
 3. Fix the Folder Structure (One-Time Setup)
---------------------------------------------
-The Python files must live inside a `certipy_tool/` package folder.
+
+The Python files must live inside a certipy_tool/ package folder.
 
 mkdir certipy_tool
 mv *.py certipy_tool/
@@ -40,24 +38,26 @@ certipy-acl/
 ├── LICENSE
 
 4. Navigate to the Correct Path Before Running
-----------------------------------------------
+
 cd /home/xpl0itnik/certipy/certipy-acl
 
 5. Run the Tool
----------------
+
 Show Help:
+
 python3 -m certipy_tool acl
 python3 -m certipy_tool acl --help
 
 Example Usage (Certified HTB):
+
 python3 -m certipy_tool acl \
   -u 'judith.mader@certified.htb' \
   -p 'judith09' \
   -target certified.htb \
   -dc-ip 10.129.231.186
- 
- Global Usage
-------------
+
+Global Usage
+
 python3 -m certipy_tool acl \
   -u '<user>@<domain>' \
   -p '<password>' \
@@ -65,17 +65,53 @@ python3 -m certipy_tool acl \
   -dc-ip <domain controller IP>
 
 This command binds to LDAP, retrieves security descriptors for directory objects, and decodes DACLs to reveal:
-- WriteOwner
-- WriteDACL
-- GenericWrite
-- GenericAll
+
+WriteOwner
+
+WriteDACL
+
+GenericWrite
+
+GenericAll
+
+Optional Extensions & Filtering
+
+You can extend the output control using the following flags:
+
+--resolve-sids
+
+Resolves raw SIDs into user- or group-readable names using LDAP lookups.
+
+--filter-sid <SID>
+
+Only shows ACEs that match this specific SID (e.g., your current user SID).
+
+Example:
+
+--filter-sid S-1-5-21-729746778-2675978091-3820388244-1103
+
+--only-users
+
+Only parses and displays ACEs related to user objects.
+
+Useful if you want to ignore groups, computers, or other object classes.
+
+💡 Recommendation:
+If you're unsure whether your current user has control over groups or users:
+
+Run once with --only-users
+
+Run again without it — to catch group-level permissions (e.g., over "Management")
 
 Notes
------
-This tool is built for:
-- Red teamers seeking silent enumeration
-- CTF players avoiding noisy tools like BloodHound
-- Researchers investigating shadow credentials or object takeovers
 
-Created by @xploitnik — powered by `ldap3`, `impacket`, and a custom Certipy ACL module.
+This tool is built for:
+
+Red teamers seeking silent enumeration
+
+CTF players avoiding noisy tools like BloodHound
+
+Researchers investigating shadow credentials or object takeovers
+
+Created by @xploitnik — powered by ldap3, impacket, and a custom Certipy ACL module.
 
