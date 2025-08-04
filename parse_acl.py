@@ -1,48 +1,69 @@
-from .auth import RIGHTS
+RIGHTS = {
+    0x00000001: "ReadProperty",
+    0x00000002: "WriteProperty",
+    0x00000004: "CreateChild",
+    0x00000008: "DeleteChild",
+    0x00000010: "ListChildren",
+    0x00000020: "Self",
+    0x00000040: "ReadControl",
+    0x00000100: "Delete",
+    0x00020000: "WriteDACL",
+    0x00080000: "WriteOwner",
+    0x01000000: "GenericRead",
+    0x02000000: "GenericWrite",
+    0x04000000: "GenericExecute",
+    0x08000000: "GenericAll",
+}
 
-def parse_acl_entries(entries, resolver=None, filter_sid=None):
-    for dn, sd in entries:
+ACE_TYPE_NAMES = {
+    0x00: "ACCESS_ALLOWED",
+    0x01: "ACCESS_DENIED",
+    0x05: "ACCESS_ALLOWED_OBJECT_ACE_TYPE",
+    0x06: "ACCESS_DENIED_OBJECT_ACE_TYPE",
+}
+
+def parse_acl_entries(entries, resolve=False, only_users=False, sid_filter=None):
+    for dn, sd, obj_classes in entries:
+        if only_users:
+            if not any(cls.lower() in ["user", "person", "inetorgperson"] for cls in obj_classes):
+                continue
+
         print(f"\n[ACL] {dn}")
         if not hasattr(sd, "dacl") or sd.dacl is None:
             print("  [!] No DACL or ACEs present")
             continue
 
         found = False
-
         for ace in sd.dacl.aces:
-            try:
-                sid = ace['Ace']['Sid'].formatCanonical()
+            acetype = ace['AceType']
+            typename = ACE_TYPE_NAMES.get(acetype, f"UNKNOWN({acetype})")
+            mask = ace['Ace']['Mask']
+            sid = ace['Ace']['Sid'].formatCanonical()
 
-                if filter_sid and sid != filter_sid:
-                    continue  # Skip unrelated ACEs
+            # SID filter: skip if not matching
+            if sid_filter and sid != sid_filter:
+                continue
 
-                resolved_sid = resolver(sid) if resolver else sid
-                mask = ace['Ace']['Mask']
-                acetype = ace['AceType']
+            resolved = sid
+            if resolve:
+                try:
+                    from certipy_tool.auth import ldap_instance
+                    resolved = ldap_instance.resolve_sid(sid)
+                except Exception:
+                    pass
 
-                typename = {
-                    0x00: "ACCESS_ALLOWED",
-                    0x01: "ACCESS_DENIED",
-                    0x05: "ACCESS_ALLOWED_OBJECT_ACE_TYPE",
-                    0x06: "ACCESS_DENIED_OBJECT_ACE_TYPE"
-                }.get(acetype, f"UNKNOWN({acetype})")
+            print("  🔐 ACE Summary:")
+            print(f"    ACE Type:       {typename}")
+            print(f"    SID:            {sid}")
+            print(f"    Resolved SID:   {resolved}")
+            print(f"    Rights:")
 
-                print(f"  🔐 ACE Summary:")
-                print(f"  Field\t\tValue")
-                print(f"  ACE Type\t{typename}")
-                print(f"  SID\t\t{sid}")
-                print(f"  Resolved SID\t{resolved_sid}")
-                print(f"  Rights:")
-
-                for bit, right in RIGHTS.items():
-                    if mask & bit:
-                        print(f"    ✅ {right}")
-
-                found = True
-
-            except Exception as e:
-                print(f"  [!] Failed to parse ACE: {e}")
+            for bit, right in RIGHTS.items():
+                if mask & bit:
+                    print(f"      ✅ {right}")
+                    found = True
 
         if not found:
-            print("  [!] No ACEs matched your SID.")
+            print("    [!] No matching rights found.")
+
 
