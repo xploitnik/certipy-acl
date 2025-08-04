@@ -1,3 +1,35 @@
+#Before we start you may see multiple ACEs permission with Certipy-acl
+🧠 Why Certipy-ACL Shows Multiple Rights but BloodHound Shows Only One
+🔍 BloodHound
+Focuses on relationships, not full DACL breakdowns.
+
+When it shows GenericAll, it's summarizing that the user has enough rights to fully control the object.
+
+It does not display all the granular rights (WriteOwner, WriteDACL, etc.) if GenericAll is present — because GenericAll already implies full control.
+
+📌 It picks the highest-level, most powerful right and shows that as the relationship in the graph.
+
+🔎 Certipy-ACL
+Reads the raw DACL bitmask from LDAP.
+
+It parses and shows every individual right granted in the Access Control Entry (ACE).
+
+So if the bitmask includes:
+
+0x02000000 → GenericWrite
+
+0x08000000 → GenericAll
+
+0x00080000 → WriteOwner
+
+0x00040000 → WriteDACL
+
+It will list them all — because they are all explicitly granted.
+
+📌 This is more transparent and helps attackers choose the least noisy attack path.
+
+
+
 # 🧪 Certipy-ACL: Case Studies  
 Live Comparison Against BloodHound Results
 
