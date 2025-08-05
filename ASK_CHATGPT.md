@@ -1,6 +1,6 @@
 # 🧠 How to Use ChatGPT to Analyze Certipy-ACL Output
 
-Sometimes Certipy-ACL successfully retrieves ACEs from LDAP — but due to current terminal display limitations, you won’t see them onscreen.
+Sometimes Certipy-ACL successfully retrieves ACEs from LDAP — but due to current terminal display limitations, you won’t see them onscreen. Refert to @KNOWN_ISSUES.md
 
 ✅ No problem — you can still extract the full value by feeding the output to ChatGPT.
 
