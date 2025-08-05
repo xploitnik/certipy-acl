@@ -39,7 +39,7 @@ If you **can’t read the DACL**, LDAP won't return it — so our tool cannot de
 
 ## 🧠 Why ChatGPT *Can* Decode ACEs (When You Paste Output)
 
-If you share the **raw LDAP response** or the **security descriptor blob**, ChatGPT (me) can:
+If you share the **raw LDAP response** or the **security descriptor blob**, ChatGPT can:
 - Parse the binary structure
 - Extract the SID
 - Decode the rights like `WriteOwner`, `GenericAll`, etc.
@@ -80,16 +80,27 @@ But the reality is:
 
 ---
 
+## 💬 Recommended ChatGPT Questions
+
+To analyze your ACL output with ChatGPT (when the tool gives limited or no ACEs), paste the full terminal output and ask:
+
+1. **“Can you analyze this Certipy ACL output and tell me which ACEs belong to my current user with SID `S-1-5-...`? Highlight any objects where this SID appears, what rights are granted (like WriteOwner or GenericAll), and ignore anything outside this domain SID or built-in groups.”**
+
+2. **“Can you analyze this Certipy ACL output and list all ACEs found for every object? I want to see the full breakdown — show me the object, SID, rights (like WriteOwner or GenericAll), and ACE type. Don’t filter anything.”**
+
+---
+
 ## 🛠 Want to Help?
 
 If you find a stealthy way to extract DACLs without `ReadControl` (e.g., via privilege escalation, alternate LDAP paths, or side channels), we’d love for you to open a pull request or issue. The community will thank you.
 
 ---
 
-## 💬 Summary
+## 🧩 Summary
 
 - This is **not a bug** in the tool
 - It’s **LDAP doing its job**
 - Knowing this will help you use Certipy ACL more effectively and realistically
 
 Stay stealthy — and stay curious 🔎
+
