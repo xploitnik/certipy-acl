@@ -85,6 +85,27 @@ If you want **real rights backed by LDAP**, this tool is your best ally.
 
 ---
 
+## ⚠️ What This Tool Does Not Do — by Design
+
+Certipy-ACL is focused on **stealthy and accurate LDAP enumeration**.
+
+To maintain this low footprint, the tool **does not simulate or infer Active Directory privileges**, such as:
+
+- 🔄 `ForceChangePassword`  
+- 👥 `AddMember` (Group Membership Modification)  
+- 🪪 `WriteSPN`, `WriteUserAccountControl`  
+- 🧠 Any **graph-based** or **transitive relationship** prediction  
+
+Those types of analysis require:
+
+- ❌ Scanning *all* domain objects  
+- ❌ Querying sensitive attributes (`userAccountControl`, `memberOf`, `msDS-AllowedToActOnBehalfOfOtherIdentity`, etc.)  
+- ❌ Heuristics and cross-object correlation  
+
+👉 This tool avoids all that by **only parsing what LDAP explicitly returns** — and only when you're authorized to see it.
+
+---
+
 ## 🧱 Known Limitation: No ReadControl = No ACEs
 
 In Active Directory, to view an object’s DACL (permissions), your user must have the `ReadControl` right.
@@ -217,6 +238,7 @@ PRs, ideas, and bug reports welcome!
 
 > *“Why wait for BloodHound’s next sync cycle...  
 > when you can see the ACLs right now?”*
+
 
 
 
