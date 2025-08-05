@@ -37,7 +37,7 @@ python3 -m certipy_tool \
 
 ### 🔹 With filtering options
 ```bash
-python3 -m certipy_tool.certipy acl \
+python3 -m certipy_tool \
   -u 'user@domain.local' \
   -p 'password123' \
   -target domain.local \
