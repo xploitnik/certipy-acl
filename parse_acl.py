@@ -40,7 +40,7 @@ def parse_acl_entries(entries, resolve=False, only_users=False, sid_filter=None)
             mask = ace['Ace']['Mask']
             sid = ace['Ace']['Sid'].formatCanonical()
 
-            # SID filter: skip if not matching
+            # SID filter
             if sid_filter and sid != sid_filter:
                 continue
 
