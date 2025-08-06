@@ -30,7 +30,9 @@ cat output.txt
 ## 🔍 Question 1 (Filtered by User SID)
 
 ```
-Can you analyze this Certipy ACL output and tell me which ACEs belong to my current user with SID S-1-5-21-729746778-2675978091-3820388244-1103? Highlight any objects where this SID appears, what rights are granted (like WriteOwner or GenericAll), and ignore anything outside this domain SID or built-in groups.
+Can you analyze this Certipy ACL output and tell me which ACEs belong to my current user with SID S-1-5-21-729746778-2675978091-3820388244-1103?
+Go line by line, and highlight any objects where this SID appears in an ACE.
+Show which rights are granted (like WriteOwner, GenericAll, etc.), and ignore any ACEs outside this domain SID or built-in groups.
 ```
 
 🟡 **Replace the SID above with your own.**  
