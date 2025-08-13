@@ -4,10 +4,9 @@ auth.py — LDAP helper for certipy-acl
 """
 
 from dataclasses import dataclass
-from typing import Dict, Generator, Iterable, List, Optional, Tuple
+from typing import Generator, Iterable, List, Optional, Tuple, Union
 
-from ldap3 import ALL, ALL_ATTRIBUTES, BASE, Connection, NTLM, Server, SUBTREE
-from ldap3.core.results import RESULT_SUCCESS
+from ldap3 import ALL, BASE, Connection, NTLM, Server, SUBTREE
 from ldap3.protocol.microsoft import security_descriptor_control
 
 
@@ -24,7 +23,7 @@ class LDAPSocket:
     """
     Thin convenience wrapper around ldap3 for:
       - binding with UPN or DOMAIN\\user
-      - discovering defaultNamingContext
+      - discovering base DN (defaultNamingContext / namingContexts from RootDSE)
       - reading nTSecurityDescriptor (Owner + DACL)
       - resolving SIDs -> names
     """
@@ -61,10 +60,12 @@ class LDAPSocket:
 
     def bind(self) -> None:
         """
-        Bind with either SIMPLE (UPN) or NTLM (DOMAIN\\user).
+        Bind con UPN (SIMPLE) o DOMAIN\\user (NTLM) y descubre el base DN.
+        Pide atributos normales (*) y operacionales (+) del RootDSE para
+        evitar 'invalid attribute type defaultNamingContext' en algunos servidores.
         """
         if "@" in self.username:
-            # UPN -> SIMPLE bind
+            # UPN -> SIMPLE
             self.conn = Connection(
                 self.server,
                 user=self.username,
@@ -73,7 +74,7 @@ class LDAPSocket:
                 auto_bind=True,
             )
         else:
-            # Expect DOMAIN\\user for NTLM
+            # DOMAIN\\user -> NTLM
             self.conn = Connection(
                 self.server,
                 user=self.username,
@@ -84,16 +85,52 @@ class LDAPSocket:
 
         if not self.conn.bound:
             raise RuntimeError("LDAP bind failed")
-        # discover defaultNamingContext
+
+        # RootDSE: pedir '*' y '+' para traer todo lo normal + operacional
         self.conn.search(
             search_base="",
             search_filter="(objectClass=*)",
             search_scope=BASE,
-            attributes=["defaultNamingContext"],
+            attributes=["*", "+"],
         )
         if not self.conn.entries:
-            raise RuntimeError("Could not read defaultNamingContext from rootDSE")
-        self.default_nc = str(self.conn.entries[0]["defaultNamingContext"])
+            raise RuntimeError("No RootDSE entries returned")
+
+        root = self.conn.entries[0]
+        attrs = root.entry_attributes_as_dict  # dict con todos los atributos
+        default_nc = attrs.get("defaultNamingContext")
+        if default_nc:
+            if isinstance(default_nc, list):
+                default_nc = default_nc[0]
+            self.default_nc = str(default_nc)
+        else:
+            # Fallback a namingContexts
+            ncs = attrs.get("namingContexts", [])
+            if not isinstance(ncs, list):
+                ncs = [ncs] if ncs else []
+            ncs = [str(x) for x in ncs]
+            dc_like = [x for x in ncs if x.upper().startswith("DC=")]
+            self.default_nc = dc_like[0] if dc_like else (ncs[0] if ncs else None)
+
+        if not self.default_nc:
+            raise RuntimeError("Could not determine default naming context from RootDSE")
+
+    # ------------------------------ helpers internos ------------------------------
+
+    @staticmethod
+    def _take_sd_blob(val) -> Optional[bytes]:
+        """
+        Devuelve el primer blob bytes válido de nTSecurityDescriptor,
+        o None si no hay datos (maneja bytes, lista vacía, etc.).
+        """
+        if isinstance(val, (bytes, bytearray)):
+            return val
+        if isinstance(val, list):
+            for v in val:
+                if isinstance(v, (bytes, bytearray)):
+                    return v
+            return None
+        return None
 
     # ------------------------------ queries ------------------------------
 
@@ -103,8 +140,8 @@ class LDAPSocket:
         page_size: int = 500,
     ) -> Generator[LDAPObject, None, None]:
         """
-        Iterate all objects in the defaultNamingContext and return the
-        nTSecurityDescriptor (Owner + DACL).
+        Itera todos los objetos en el defaultNamingContext y devuelve
+        nTSecurityDescriptor (Owner + DACL) usando paginación nativa de ldap3.
         """
         if self.conn is None or self.default_nc is None:
             raise RuntimeError("Not bound")
@@ -114,54 +151,67 @@ class LDAPSocket:
             if need not in attrs:
                 attrs.append(need)
 
-        # Ask AD to include SD (Owner + DACL). SACL requires SeSecurityPrivilege.
-        sd_control = security_descriptor_control(sdflags=0x05)  # OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION
+        # OWNER_SECURITY_INFORMATION (0x01) | DACL_SECURITY_INFORMATION (0x04) = 0x05
+        sd_control = security_descriptor_control(sdflags=0x05)
 
-        cookie = None
-        while True:
-            self.conn.extend.standard.paged_search(
-                search_base=self.default_nc,
-                search_filter="(objectClass=*)",
-                search_scope=SUBTREE,
-                attributes=attrs,
-                paged_size=page_size,
-                paged_cookie=cookie,
-                controls=sd_control,
+        # ldap3 se encarga de la paginación si usamos generator=True
+        results = self.conn.extend.standard.paged_search(
+            search_base=self.default_nc,
+            search_filter="(objectClass=*)",
+            search_scope=SUBTREE,
+            attributes=attrs,
+            paged_size=page_size,
+            generator=True,
+            controls=sd_control,
+        )
+
+        for entry in results:
+            if entry.get("type") != "searchResEntry":
+                continue
+            dn = entry["dn"]
+            attrs_dict = entry.get("attributes", {}) or {}
+
+            sd = self._take_sd_blob(attrs_dict.get("nTSecurityDescriptor"))
+
+            yield LDAPObject(
+                dn=dn,
+                object_class=list(attrs_dict.get("objectClass", []) or []),
+                name=str(attrs_dict.get("name", "")),
+                nt_security_descriptor=sd,
+                object_sid=attrs_dict.get("objectSid"),
             )
-            # ldap3 stores last response in result
-            for entry in self.conn.response or []:
-                if entry.get("type") != "searchResEntry":
-                    continue
-                dn = entry["dn"]
-                attrs_dict = entry.get("attributes", {})
-
-                sd = attrs_dict.get("nTSecurityDescriptor")
-                if isinstance(sd, list):
-                    sd = sd[0]
-                obj = LDAPObject(
-                    dn=dn,
-                    object_class=list(attrs_dict.get("objectClass", []) or []),
-                    name=str(attrs_dict.get("name", "")),
-                    nt_security_descriptor=sd if isinstance(sd, (bytes, bytearray)) else None,
-                    object_sid=attrs_dict.get("objectSid"),
-                )
-                yield obj
-
-            cookie = self.conn.result.get("controls", {}).get("1.2.840.113556.1.4.319", {}).get("value", {}).get("cookie")
-            if not cookie:
-                break
 
     # ------------------------------ SID resolution ------------------------------
 
-    def resolve_sid(self, sid_bin: bytes) -> Optional[str]:
+    def _sid_str_to_bin(self, sid: str) -> bytes:
+        import struct
+        parts = sid.split("-")
+        if parts[0] != "S":
+            raise ValueError("Invalid SID")
+        revision = int(parts[1])
+        ident_auth = int(parts[2])
+        subs = list(map(int, parts[3:]))
+        subcount = len(subs)
+        out = struct.pack("<BB", revision, subcount)
+        out += ident_auth.to_bytes(6, byteorder="big")
+        for s in subs:
+            out += struct.pack("<I", s)
+        return out
+
+    def resolve_sid(self, sid_bin_or_str: Union[bytes, str]) -> Optional[str]:
         """
-        Resolve a binary SID to a 'DOMAIN\\samAccountName' if possible.
-        Falls back to the object DN, or None if not found.
+        Resuelve un SID (bytes o SDDL string) a 'DOMAIN\\samAccountName' si es posible.
+        Si no, devuelve el DN; si no se encuentra, None.
         """
         if self.conn is None or self.default_nc is None:
             raise RuntimeError("Not bound")
 
-        # LDAP filter must escape bytes of objectSid
+        if isinstance(sid_bin_or_str, str):
+            sid_bin = self._sid_str_to_bin(sid_bin_or_str)
+        else:
+            sid_bin = sid_bin_or_str
+
+        # Escapar bytes de objectSid en el filtro LDAP
         sid_escaped = "".join(f"\\{b:02x}" for b in sid_bin)
         flt = f"(objectSid={sid_escaped})"
         self.conn.search(
@@ -178,20 +228,67 @@ class LDAPSocket:
         dn = str(entry["distinguishedName"]) if "distinguishedName" in entry else None
 
         if sam:
-            # figure out NETBIOS/short domain (best effort from default NC)
             short_dom = self._short_domain()
             return f"{short_dom}\\{sam}" if short_dom else sam
         return dn
 
     def _short_domain(self) -> Optional[str]:
-        """Return the left-most DC as a reasonable short name."""
+        """Devuelve el primer DC= como nombre corto razonable."""
         if not self.default_nc:
             return None
-        # e.g. DC=certified,DC=htb -> certified
         parts = [p for p in self.default_nc.split(",") if p.upper().startswith("DC=")]
         if not parts:
             return None
         return parts[0][3:]
 
+    # ------------------------------ token groups (effective SIDs) ------------------------------
 
+    def get_token_group_sids(self, upn_or_sam: str) -> List[bytes]:
+        """
+        Returns [objectSid] + tokenGroups (all as bytes) for the given principal.
+        Accepts UPN (user@domain) or sAMAccountName.
+        """
+        if self.conn is None or self.default_nc is None:
+            raise RuntimeError("Not bound")
 
+        if "@" in upn_or_sam:
+            flt = f"(|(userPrincipalName={upn_or_sam})(sAMAccountName={upn_or_sam.split('@',1)[0]}))"
+        else:
+            flt = f"(sAMAccountName={upn_or_sam})"
+
+        self.conn.search(
+            search_base=self.default_nc,
+            search_filter=flt,
+            search_scope=SUBTREE,
+            attributes=["objectSid", "tokenGroups"],
+        )
+        if not self.conn.entries:
+            return []
+
+        e = self.conn.entries[0]
+        out: List[bytes] = []
+
+        try:
+            sid = e["objectSid"].raw_values[0]
+            if isinstance(sid, (bytes, bytearray)):
+                out.append(bytes(sid))
+        except Exception:
+            pass
+
+        try:
+            for tg in e["tokenGroups"].raw_values:
+                if isinstance(tg, (bytes, bytearray)):
+                    out.append(bytes(tg))
+        except Exception:
+            pass
+
+        return out
+
+    # ------------------------------ compat shim ------------------------------
+
+    def get_effective_control_entries(self) -> Generator[Tuple[str, Optional[bytes]], None, None]:
+        """
+        Compat: devuelve (dn, sd_blob) como lo espera el parser.
+        """
+        for obj in self.iter_domain_objects():
+            yield (obj.dn, obj.nt_security_descriptor)
