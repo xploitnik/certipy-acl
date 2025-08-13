@@ -22,7 +22,7 @@ python3 -m certipy_tool \
   -u 'user@domain.local' \
   -p 'password123' \
   -target domain.local \
-  -dc-ip 10.10.10.10
+  --dc-ip 10.10.10.10
 ```
 
 ### 🔹 With SID resolution
@@ -31,7 +31,7 @@ python3 -m certipy_tool \
   -u 'user@domain.local' \
   -p 'password123' \
   -target domain.local \
-  -dc-ip 10.10.10.10 \
+  --dc-ip 10.10.10.10 \
   --resolve-sids
 ```
 
@@ -41,7 +41,7 @@ python3 -m certipy_tool \
   -u 'user@domain.local' \
   -p 'password123' \
   -target domain.local \
-  -dc-ip 10.10.10.10 \
+  --dc-ip 10.10.10.10 \
   --filter-sid S-1-5-21-1111-2222-3333-4444 \
   --only-users \
   --resolve-sids
