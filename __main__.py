@@ -1,5 +1,3 @@
-
-
 #!/usr/bin/env python3
 r"""
 __main__.py — entrypoint for: python3 -m certipy_tool
