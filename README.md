@@ -52,16 +52,24 @@ python3 -m certipy_tool \
   [--no-bh-compat] \
   [--verbose]
 
-Exaple:
+Exaple: 1 (Without a Target Object)
+python3 -m certipy_tool   \
+-u 'judith.mader@certified.htb' \
+-p 'judith09' \
+-d certified.htb \
+--dc-ip 10.129.231.186   \
+--filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1103'   \
+--resolve-sids --hits-only
+
+Example: 2 (with Target Object)
 python3 -m certipy_tool \
 -u 'judith.mader@certified.htb' \
 -p 'judith09' \
 -d certified.htb \
 --dc-ip 10.129.231.186 \
---target-dn 'CN=management service,CN=Users,DC=certified,DC=htb' \
---filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1104' \
+--target-dn 'CN=Management,CN=Users,DC=certified,DC=htb' \
+--filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1103' \
 --resolve-sids --hits-only
-
 ```
 
 ---
