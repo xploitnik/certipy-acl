@@ -36,20 +36,6 @@ python3 -m certipy_tool \
 
 ### 🔹 With filtering options
 ```bash
-python3 -m certipy_tool \
-  -u '<user@domain>' \
-  -p '<password>' \
-  -d <domain_fqdn> \
-  --dc-ip <dc_ip> \
-  [--target-dn '<distinguished_name>'] \
-  [--filter-sid '<sid>'] \
-  [--size-limit <N>] \
-  [--check-writeowner] \
-  [--only-escalation | --hits-only] \
-  [--resolve-sids] \
-  [--ldaps] \
-  [--no-bh-compat] \
-  [--verbose]
 
 Exaple: 1 (Without a Target Object)
 python3 -m certipy_tool   \
@@ -66,23 +52,30 @@ python3 -m certipy_tool \
 -p 'judith09' \
 -d certified.htb \
 --dc-ip 10.129.231.186 \
---target-dn 'CN=Management,CN=Users,DC=certified,DC=htb' \
+--target-dn 'CN=Management,CN=Users,DC=certified,DC=htb' \ #targetting the object to filter our noise
 --filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1103' \
 --resolve-sids --hits-only
 ```
+NOTE:
+Note for README:
+If you are checking RID 1104, update --filter-sid to end in -1104 and change --target-dn from CN=Management,... to CN=management service,... (or the exact CN of the target object). Always quote DNs and SIDs.
 
----
-
-## 💾 Save Output
-
-You can redirect the output to a file:
-```bash
-python3 -m certipy_tool \
-  ...your args... \
-  > acls.txt
 ```
-
-Then open `acls.txt` or paste it into ChatGPT for analysis.
+python3 -m certipy_tool \
+  -u '<user@domain>' \
+  -p '<password>' \
+  -d <domain_fqdn> \
+  --dc-ip <dc_ip> \
+  [--target-dn '<distinguished_name>'] \
+  [--filter-sid '<sid>'] \
+  [--size-limit <N>] \
+  [--check-writeowner] \
+  [--only-escalation | --hits-only] \
+  [--resolve-sids] \
+  [--ldaps] \
+  [--no-bh-compat] \
+  [--verbose]
+```
 
 ---
 
