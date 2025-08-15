@@ -54,6 +54,39 @@ ACE_TYPE_NAMES = {
     0x06: "ACCESS_DENIED_OBJECT_ACE_TYPE",
 }
 
+# --- Expansión de genéricos ---
+def expand_generic_for_directory(mask: int) -> int:
+    """
+    Expande GENERIC_* a derechos estándar/específicos típicos de objetos de Directorio en AD.
+    Nota: mapeos usados comúnmente; suficientes para el quick check (WriteOwner, WriteDACL, etc.).
+    """
+    expanded = mask
+
+    if mask & 0x10000000:  # GenericAll
+        expanded |= (
+            0x00010000 |  # Delete
+            0x00020000 |  # ReadControl
+            0x00040000 |  # WriteDACL
+            0x00080000 |  # WriteOwner
+            0x00000010 |  # ReadProperty
+            0x00000020 |  # WriteProperty
+            0x00000004 |  # ListChildren
+            0x00000080 |  # ListObject
+            0x00000100 |  # ControlAccess
+            0x00000008    # Self
+        )
+
+    if mask & 0x40000000:  # GenericWrite
+        expanded |= (0x00000020 | 0x00000008 | 0x00020000)
+
+    if mask & 0x80000000:  # GenericRead
+        expanded |= (0x00000010 | 0x00000004 | 0x00000080 | 0x00020000)
+
+    if mask & 0x20000000:  # GenericExecute
+        expanded |= (0x00000004 | 0x00000080 | 0x00020000)
+
+    return expanded
+
 def _mask_to_int(mask_obj) -> int:
     """Convierte el Mask del ACE a int de forma robusta."""
     try:
@@ -137,28 +170,34 @@ def parse_acl_entries(entries, resolve=False, only_users=False, sid_filter=None,
                         pass
 
                 mask_val = _mask_to_int(mask_raw)
+                expanded_mask = expand_generic_for_directory(mask_val)
 
                 print("  🔐 ACE Summary:")
                 print(f"    ACE Type:       {typename}")
                 print(f"    SID:            {sid}")
                 print(f"    Resolved SID:   {resolved}")
                 print(f"    Mask (hex):     0x{mask_val:08X}")
+
+                # Mostrar genéricos presentes en la máscara original
+                generic_present = [name for bit, name in GENERIC_RIGHTS.items() if (mask_val & bit) != 0]
+                if generic_present:
+                    print(f"    Generic (raw):  {', '.join(generic_present)}")
+
                 print("    Rights:")
 
                 matched_bits = set()
                 matches_in_this_ace = 0
 
-                # Mostrar por categorías
+                # Mostrar por categorías usando la máscara EXPANDIDA
                 for cat_name, mapping in RIGHTS_ORDERED:
                     for bit, name in mapping.items():
-                        if (mask_val & bit) != 0:
+                        if (expanded_mask & bit) != 0:
                             print(f"      ✅ {name}")
                             matches_in_this_ace += 1
                             matched_bits.add(bit)
                             any_rights_printed_for_object = True
 
-                # Si hay bits activos que no tenemos mapeados, listarlos
-                unknown = mask_val
+                unknown = expanded_mask
                 for bit in matched_bits:
                     unknown &= ~bit
                 if matches_in_this_ace == 0:
@@ -166,10 +205,10 @@ def parse_acl_entries(entries, resolve=False, only_users=False, sid_filter=None,
                 if unknown != 0:
                     print(f"      … Unknown bits: 0x{unknown:08X}")
 
-                # Chequeo rápido de derechos clave
+                # Chequeo rápido de derechos clave usando máscara expandida
                 print("    Key rights (quick check):")
                 for bit, name in KEY_BITS.items():
-                    has_it = (mask_val & bit) != 0
+                    has_it = (expanded_mask & bit) != 0
                     print(f"      - {name}: {'YES' if has_it else 'NO'}")
 
             except Exception as e:
@@ -181,6 +220,7 @@ def parse_acl_entries(entries, resolve=False, only_users=False, sid_filter=None,
 
         if not any_rights_printed_for_object:
             print("    [!] No matching rights found.")
+
 
 
 
