@@ -32,7 +32,6 @@ python3 -m certipy_tool \
   -p 'judith09' \
   -d certified.htb \
   --dc-ip 10.129.231.186 \
-  --target-dn 'CN=Management,CN=Users,DC=certified,DC=htb'
 ```
 
 ### 🔹 With filtering options
