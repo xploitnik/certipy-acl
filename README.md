@@ -19,32 +19,48 @@ Your feedback and contributions are highly appreciated!
 ### 🔹 Basic
 ```bash
 python3 -m certipy_tool \
-  -u 'user@domain.local' \
-  -p 'password123' \
-  -target domain.local \
-  --dc-ip 10.10.10.10
-```
+  -u '<user@domain>' \
+  -p '<password>' \
+  -d <domain_fqdn> \
+  --dc-ip <dc_ip> \
+  --target-dn '<distinguished_name>' \
+  [--filter-sid '<sid>'] [--resolve-sids] [--hits-only] [--ldaps] [--verbose]
 
-### 🔹 With SID resolution
-```bash
+#Example Certified.htb
 python3 -m certipy_tool \
-  -u 'user@domain.local' \
-  -p 'password123' \
-  -target domain.local \
-  --dc-ip 10.10.10.10 \
-  --resolve-sids
+  -u 'judith.mader@certified.htb' \
+  -p 'judith09' \
+  -d certified.htb \
+  --dc-ip 10.129.231.186 \
+  --target-dn 'CN=Management,CN=Users,DC=certified,DC=htb'
 ```
 
 ### 🔹 With filtering options
 ```bash
 python3 -m certipy_tool \
-  -u 'user@domain.local' \
-  -p 'password123' \
-  -target domain.local \
-  --dc-ip 10.10.10.10 \
-  --filter-sid S-1-5-21-1111-2222-3333-4444 \
-  --only-users \
-  --resolve-sids
+  -u '<user@domain>' \
+  -p '<password>' \
+  -d <domain_fqdn> \
+  --dc-ip <dc_ip> \
+  [--target-dn '<distinguished_name>'] \
+  [--filter-sid '<sid>'] \
+  [--size-limit <N>] \
+  [--check-writeowner] \
+  [--only-escalation | --hits-only] \
+  [--resolve-sids] \
+  [--ldaps] \
+  [--no-bh-compat] \
+  [--verbose]
+
+Exaple:
+python3 -m certipy_tool \
+-u 'judith.mader@certified.htb' \
+-p 'judith09' \
+-d certified.htb \
+--dc-ip 10.129.231.186 \
+--target-dn 'CN=management service,CN=Users,DC=certified,DC=htb' \
+--filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1104' \
+--resolve-sids --hits-only
 
 ```
 
@@ -65,9 +81,25 @@ Then open `acls.txt` or paste it into ChatGPT for analysis.
 
 ## 🧩 Extensions and Filtering
 
-- `--resolve-sids`: Show human-readable names instead of raw SIDs  
-- `--filter-sid <SID>`: Show only ACEs that match the current SID  
-- `--only-users`: Limit results to ACEs on user objects (e.g., CN=Users)
+Flags (quick ref):
+
+--target-dn — limit search to a DN/subtree (quote it).
+
+--filter-sid — show ACEs where trustee == SID (quote it).
+
+--size-limit — process only first N objects (perf).
+
+--check-writeowner — boolean check: does --filter-sid have WriteOwner on --target-dn?
+
+--only-escalation / --hits-only — show only escalation-relevant rights.
+
+--resolve-sids — resolve SIDs to names via LDAP.
+
+--ldaps — use LDAPS.
+
+--no-bh-compat — disable “GenericWrite (derived)” inference from WriteProperty/Self.
+
+--verbose — extra logs.
 
 ---
 
