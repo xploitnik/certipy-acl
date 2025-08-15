@@ -1,104 +1,120 @@
-from ldap3 import Server, Connection, ALL, NTLM
-from ldap3.protocol.microsoft import security_descriptor_control
-from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR, LDAP_SID
+from typing import List, Set, Tuple, Optional
+import struct
+from ldap3 import Server, Connection, NTLM, SUBTREE, BASE
 
+def build_base_dn(domain: str) -> str:
+    return "DC=" + ",DC=".join(domain.split("."))
 
-class LDAPSocket:
-    def __init__(self, target, username, password, domain, dc_ip, use_ldaps: bool = False):
-        """
-        target: DC host/IP for LDAP (usually same as dc_ip)
-        username: UPN or user@domain
-        domain: AD domain (e.g., certified.htb)
-        dc_ip: domain controller IP (kept for compatibility)
-        use_ldaps: set True for LDAPS (636)
-        """
-        self.target = target
-        self.username = username
-        self.password = password
-        self.domain = domain
-        self.dc_ip = dc_ip
-        self.use_ldaps = use_ldaps
-        self.user_sid = None
+def ntlm_username(domain: str, username: str) -> str:
+    # acepta UPN o DOMAIN\sam
+    if "\\" in username:
+        return username
+    sam = username.split("@")[0]
+    return f"{domain}\\{sam}"
 
-        server = Server(self.target, get_info=ALL, use_ssl=bool(self.use_ldaps))
+def bind_ldap(dc_ip: str, domain: str, username: str, password: str) -> Connection:
+    user_ntlm = ntlm_username(domain, username)
+    server = Server(dc_ip, get_info=None)
+    conn = Connection(server, user=user_ntlm, password=password, authentication=NTLM, auto_bind=True)
+    return conn
 
-        # Escape the backslash in the domain\user string
-        formatted_user = f"{self.domain}\\{self.username.split('@')[0]}"
+# --- SID helpers ---
+def bin_sid_to_str(bsid: bytes) -> str:
+    if not bsid or len(bsid) < 8:
+        return ""
+    rev = bsid[0]
+    cnt = bsid[1]
+    auth = int.from_bytes(bsid[2:8], 'big')
+    subs, off = [], 8
+    for _ in range(cnt):
+        subs.append(str(struct.unpack('<I', bsid[off:off+4])[0]))
+        off += 4
+    return f"S-{rev}-{auth}-" + "-".join(subs) if subs else f"S-{rev}-{auth}"
 
-        self.conn = Connection(
-            server,
-            user=formatted_user,
-            password=self.password,
-            authentication=NTLM,
-            auto_bind=True,
-        )
-        print("[AUTH] LDAP bind successful.")
-
-        self.user_sid = self.get_own_sid()
-        print(f"[INFO] Current user SID: {self.user_sid}")
-
-    @property
-    def domain_dn(self) -> str:
-        return "DC=" + ",DC=".join(self.domain.split("."))
-
-    @property
-    def upn(self) -> str:
-        return self.username if "@" in self.username else f"{self.username}@{self.domain}"
-
-    def get_own_sid(self):
-        self.conn.search(
-            search_base=self.domain_dn,
-            search_filter=f"(sAMAccountName={self.username.split('@')[0]})",
-            attributes=["objectSid"],
-        )
-        for entry in self.conn.entries:
-            return entry["objectSid"].value
+def sid_str_to_bin(sid: str) -> Optional[bytes]:
+    # Convierte "S-1-5-21-..." a binario para comparar con objectSid
+    try:
+        parts = sid.strip().split('-')
+        if parts[0] != 'S':
+            return None
+        rev = int(parts[1])
+        ident_auth = int(parts[2])
+        subauths = [int(x) for x in parts[3:]]
+        b = bytearray()
+        b.append(rev & 0xFF)
+        b.append(len(subauths) & 0xFF)
+        b.extend(ident_auth.to_bytes(6, 'big'))
+        for sa in subauths:
+            b.extend(sa.to_bytes(4, 'little', signed=False))
+        return bytes(b)
+    except Exception:
         return None
 
-    def get_effective_control_entries(self):
-        controls = security_descriptor_control(sdflags=0x07)
-        print(f"[AUTH] Searching objects with ACLs for {self.upn}...")
+# --- Usuario y token ---
+def get_user_dn_and_sid(conn: Connection, upn_or_sam: str, base_dn: str) -> Tuple[str, Optional[str]]:
+    sam = upn_or_sam.split('@')[0]
+    flt = f"(|(userPrincipalName={upn_or_sam})(sAMAccountName={sam}))"
+    conn.search(base_dn, flt, attributes=['distinguishedName','objectSid'])
+    if not conn.entries:
+        raise RuntimeError(f"User not found: {upn_or_sam}")
+    e = conn.entries[0]
+    dn = str(e['distinguishedName'])
+    sid = bin_sid_to_str(e['objectSid'].raw_values[0]) if e['objectSid'].raw_values else None
+    return dn, sid
 
-        self.conn.search(
-            search_base=self.domain_dn,
+def get_effective_token_sids(conn: Connection, user_dn: str, self_sid: Optional[str]) -> Set[str]:
+    eff: Set[str] = set([self_sid]) if self_sid else set()
+    conn.search(user_dn, '(objectClass=*)', search_scope=BASE, attributes=['tokenGroups'])
+    if conn.entries:
+        entry = conn.entries[0]
+        if 'tokenGroups' in entry and hasattr(entry['tokenGroups'], 'raw_values'):
+            for raw in entry['tokenGroups'].raw_values:
+                sid = bin_sid_to_str(raw)
+                if sid:
+                    eff.add(sid)
+    return eff
+
+def paged_search_dns(conn: Connection, base_dn: str, size_limit: int = 0) -> List[str]:
+    dns: List[str] = []
+    cookie = None
+    while True:
+        conn.search(
+            search_base=base_dn,
             search_filter="(objectClass=*)",
-            attributes=["nTSecurityDescriptor", "objectClass"],
-            controls=controls,
+            search_scope=SUBTREE,
+            attributes=['distinguishedName'],
+            paged_size=500,
+            paged_cookie=cookie
         )
+        for e in conn.entries:
+            if 'distinguishedName' in e:
+                dns.append(str(e['distinguishedName']))
+        cookie = conn.result.get('controls', {}).get('1.2.840.113556.1.4.319', {}).get('value', {}).get('cookie')
+        if not cookie:
+            break
+        if size_limit and len(dns) >= size_limit:
+            dns = dns[:size_limit]
+            break
+    return dns
 
-        entries = []
-        for entry in self.conn.entries:
-            dn = entry.entry_dn
-            try:
-                if "nTSecurityDescriptor" not in entry or not entry["nTSecurityDescriptor"].raw_values:
-                    continue
-
-                raw_sd = entry["nTSecurityDescriptor"].raw_values[0]
-                sd = SR_SECURITY_DESCRIPTOR()
-                sd.fromString(raw_sd)
-
-                obj_classes = entry["objectClass"].values if "objectClass" in entry else []
-                entries.append((dn, sd, obj_classes))
-            except Exception:
-                continue
-
-        return entries
-
-    def resolve_sid(self, sid_str: str) -> str:
-        try:
-            ldap_sid = LDAP_SID()
-            ldap_sid.fromCanonical(sid_str)
-            sid_bytes = ldap_sid.getData()
-            escaped = "".join(f"\\{b:02x}" for b in sid_bytes)
-
-            self.conn.search(
-                search_base=self.domain_dn,
-                search_filter=f"(objectSid={escaped})",
-                attributes=["sAMAccountName"],
-            )
-            if self.conn.entries:
-                return self.conn.entries[0]["sAMAccountName"].value
-        except Exception:
-            pass
+def resolve_sid_name(conn: Connection, base_dn: str, sid_str: str) -> str:
+    """
+    Intenta resolver SID -> nombre (sAMAccountName o cn). Si falla, devuelve el SID.
+    """
+    sid_bin = sid_str_to_bin(sid_str)
+    if not sid_bin:
         return sid_str
+    flt = "(objectSid=" + sid_bin.decode('latin1') + ")"  # LDAP requiere bytes, ldap3 maneja raw internamente
+    try:
+        conn.search(base_dn, flt, attributes=['sAMAccountName', 'cn'])
+        if conn.entries:
+            e = conn.entries[0]
+            if 'sAMAccountName' in e and str(e['sAMAccountName']):
+                return str(e['sAMAccountName'])
+            if 'cn' in e and str(e['cn']):
+                return str(e['cn'])
+    except Exception:
+        pass
+    return sid_str
+
 
