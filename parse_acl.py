@@ -1,277 +1,279 @@
-# parse_acl.py
-from typing import Tuple, List, Optional, Set
-import re
-from ldap3 import BASE, Connection
-from ldap3.protocol.microsoft import security_descriptor_control
-from ldap3.core.exceptions import LDAPInvalidDnError
-from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR, ACL as IMPACL
+# certipy_tool/parse_acl.py
+# -*- coding: utf-8 -*-
+from typing import Callable, Iterable, List, Optional, Tuple
 
-# ==== Constantes y mapeo genéricos ====
-GENERIC_ALL     = 0x10000000
-GENERIC_EXECUTE = 0x20000000
-GENERIC_WRITE   = 0x40000000
-GENERIC_READ    = 0x80000000
+try:
+    from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
+except Exception:
+    SR_SECURITY_DESCRIPTOR = object
 
-WRITE_OWNER       = 0x00080000
-WRITE_DACL        = 0x00040000
-DELETE            = 0x00010000
-DS_CONTROL_ACCESS = 0x00000100
-DS_WRITE_PROP     = 0x00000020
-DS_READ_PROP      = 0x00000010
-
-GENERIC_MAPPING_DS = {
-    'GENERIC_READ':    0x00020000 | 0x00000010 | 0x00000001,
-    'GENERIC_WRITE':   0x00000020 | 0x00000008 | 0x00000004,
-    'GENERIC_EXECUTE': 0x00000040 | 0x00000080,
-    'GENERIC_ALL':     0x00010000 | 0x00020000 | 0x00040000 | 0x00080000 |
-                       0x00000001 | 0x00000002 | 0x00000004 | 0x00000008 |
-                       0x00000010 | 0x00000020 | 0x00000040 | 0x00000080 |
-                       0x00000100
+# === DS rights ===
+DS_RIGHTS = {
+    0x00000001: "CreateChild",
+    0x00000002: "DeleteChild",
+    0x00000004: "ListChildren",
+    0x00000008: "Self",
+    0x00000010: "ReadProperty",
+    0x00000020: "WriteProperty",
+    0x00000040: "DeleteTree",
+    0x00000080: "ListObject",
+    0x00000100: "ControlAccess",
 }
+# === Standard rights ===
+STANDARD_RIGHTS = {
+    0x00010000: "Delete",
+    0x00020000: "ReadControl",
+    0x00040000: "WriteDACL",
+    0x00080000: "WriteOwner",
+    0x00100000: "Synchronize",
+    0x01000000: "AccessSystemSecurity",
+}
+# === Generic rights ===
+GENERIC_RIGHTS = {
+    0x10000000: "GenericAll",
+    0x20000000: "GenericExecute",
+    0x40000000: "GenericWrite",
+    0x80000000: "GenericRead",
+}
+RIGHTS = {**DS_RIGHTS, **STANDARD_RIGHTS, **GENERIC_RIGHTS}
+ALL_RIGHTS_MASK = 0
+for bit in RIGHTS:
+    ALL_RIGHTS_MASK |= bit
 
-# ==== Utils máscaras / SD ====
-def mask_to_int(m) -> int:
-    if isinstance(m, int):
-        return m
-    for attr in ('mask', 'value', '_value', '_mask'):
-        if hasattr(m, attr) and isinstance(getattr(m, attr), int):
-            return getattr(m, attr)
-    if hasattr(m, 'getData'):
+ACE_TYPE_NAMES = {
+    0x00: "ACCESS_ALLOWED",
+    0x01: "ACCESS_DENIED",
+    0x05: "ACCESS_ALLOWED_OBJECT",
+    0x06: "ACCESS_DENIED_OBJECT",
+}
+SE_DACL_PRESENT = 0x0004
+
+
+def _ace_type_name(t: int) -> str:
+    return ACE_TYPE_NAMES.get(t, f"UNKNOWN({t})")
+
+
+def _mask_to_int(mask_obj) -> int:
+    """
+    Convierte impacket.ACCESS_MASK a int de forma a prueba de versiones.
+    """
+    # 1) Si ya es int, va directo
+    if isinstance(mask_obj, int):
+        return mask_obj
+    # 2) Algunos exponen .getValue() o .mask
+    for attr in ("getValue", "mask"):
         try:
-            data = m.getData()
-            if isinstance(data, (bytes, bytearray)) and len(data) >= 4:
-                return int.from_bytes(data[:4], 'little')
+            val = getattr(mask_obj, attr)
+            if callable(val):
+                v = val()
+                if isinstance(v, int):
+                    return v
+            elif isinstance(val, int):
+                return val
         except Exception:
             pass
-    s = repr(m)
-    m2 = re.search(r'0x([0-9a-fA-F]+)', s)
-    if m2:
-        return int(m2.group(0), 16)
-    raise TypeError(f"No pude convertir ACCESS_MASK a int: type={type(m)} repr={s}")
+    # 3) Camino robusto: bytes crudos little-endian
+    try:
+        raw = mask_obj.getData()  # 4 bytes LE
+        if isinstance(raw, (bytes, bytearray)) and len(raw) >= 4:
+            return int.from_bytes(raw[:4], "little", signed=False)
+    except Exception:
+        pass
+    # 4) Último recurso: repr/str no es fiable -> error claro
+    raise TypeError(f"No pude convertir ACCESS_MASK a int: {type(mask_obj)}")
 
-def expand_generic(mask: int) -> int:
-    m = mask if isinstance(mask, int) else mask_to_int(mask)
-    if m & GENERIC_ALL:     m |= GENERIC_MAPPING_DS['GENERIC_ALL']
-    if m & GENERIC_WRITE:   m |= GENERIC_MAPPING_DS['GENERIC_WRITE']
-    if m & GENERIC_READ:    m |= GENERIC_MAPPING_DS['GENERIC_READ']
-    if m & GENERIC_EXECUTE: m |= GENERIC_MAPPING_DS['GENERIC_EXECUTE']
-    return m & ~(GENERIC_ALL | GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE)
 
-def quick_rights(mask_any) -> dict:
-    raw = mask_to_int(mask_any)
-    exp = expand_generic(raw)
-    known = WRITE_OWNER | WRITE_DACL | DELETE | DS_CONTROL_ACCESS | DS_WRITE_PROP | DS_READ_PROP
+def _decode_rights(mask: int) -> List[str]:
+    names = []
+    for table in (DS_RIGHTS, STANDARD_RIGHTS, GENERIC_RIGHTS):
+        for bit, name in table.items():
+            if mask & bit:
+                names.append(name)
+    return names
+
+
+def _key_rights(mask: int, bh_compat: bool = True) -> dict:
+    has_write_owner = bool(mask & 0x00080000)
+    has_write_dacl = bool(mask & 0x00040000)
+    has_generic_all = bool(mask & 0x10000000)
+    has_gw_direct = bool(mask & 0x40000000)
+    has_writeprop = bool(mask & 0x00000020)
+    has_self = bool(mask & 0x00000008)
+    has_gw_derived = bh_compat and (has_writeprop or has_self)
     return {
-        'WriteOwner':     bool(exp & WRITE_OWNER),
-        'WriteDACL':      bool(exp & WRITE_DACL),
-        'GenericAll':     bool(raw & GENERIC_ALL),
-        'GenericWrite':   bool(raw & GENERIC_WRITE),
-        'GenericRead':    bool(raw & GENERIC_READ),
-        'Delete':         bool(exp & DELETE),
-        'ControlAccess':  bool(exp & DS_CONTROL_ACCESS),
-        'WriteProperty':  bool(exp & DS_WRITE_PROP),
-        'ReadProperty':   bool(exp & DS_READ_PROP),
-        'raw':            raw,
-        'expanded':       exp,
-        'unknown_lowbits': exp & ~known
+        "WriteOwner": has_write_owner,
+        "WriteDACL": has_write_dacl,
+        "GenericAll": has_generic_all,
+        "GenericWrite_direct": has_gw_direct,
+        "GenericWrite_derived": has_gw_derived,
     }
 
-def parse_sd_header(raw_sd: bytes):
-    if len(raw_sd) < 20:
-        return None, None, None, None, None
-    control = int.from_bytes(raw_sd[2:4], 'little')
-    owner_off = int.from_bytes(raw_sd[4:8], 'little')
-    group_off = int.from_bytes(raw_sd[8:12], 'little')
-    sacl_off  = int.from_bytes(raw_sd[12:16], 'little')
-    dacl_off  = int.from_bytes(raw_sd[16:20], 'little')
-    return control, owner_off, group_off, sacl_off, dacl_off
 
-# ==== LDAP SD fetch (robusto a DN inválidos) ====
-def fetch_sd_raw(conn: Connection, dn: str, sdflags: int) -> Optional[bytes]:
-    # Validación ligera de DN
-    if not isinstance(dn, str) or '=' not in dn:
-        return None
+def _format_bool(label: str, val: bool, alt: Optional[str] = None) -> str:
+    return f"  - {label}: {('YES' if val else 'NO') if not alt else (alt if val else 'NO')}"
 
-    ctrl_obj = security_descriptor_control(sdflags=sdflags)
-    controls = ctrl_obj if isinstance(ctrl_obj, list) else [
-        (ctrl_obj.controlType, ctrl_obj.criticality, ctrl_obj.controlValue)
-    ]
 
+def _should_print_ace(mask: int, only_escalation: bool, bh_compat: bool) -> bool:
+    if not only_escalation:
+        return True
+    kk = _key_rights(mask, bh_compat)
+    return any(
+        [
+            kk["WriteOwner"],
+            kk["WriteDACL"],
+            kk["GenericAll"],
+            kk["GenericWrite_direct"],
+            kk["GenericWrite_derived"],
+        ]
+    )
+
+
+def _resolve_sid_safe(sid: str, resolver: Optional[Callable[[str], str]]) -> str:
+    if not resolver:
+        return sid
     try:
-        ok = conn.search(
-            search_base=dn,
-            search_filter="(objectClass=*)",
-            search_scope=BASE,
-            attributes=['nTSecurityDescriptor'],
-            controls=controls
-        )
-    except LDAPInvalidDnError:
-        return None
+        return resolver(sid) or sid
     except Exception:
-        return None
+        return sid
 
-    if not ok or not conn.entries:
-        return None
 
-    e = conn.entries[0]
-    if 'nTSecurityDescriptor' not in e or not hasattr(e['nTSecurityDescriptor'], 'raw_values') or not e['nTSecurityDescriptor'].raw_values:
-        return None
+def _is_dn_under(dn: str, base_dn: str) -> bool:
+    if not base_dn:
+        return True
+    dn_l, base_l = dn.lower(), base_dn.lower()
+    return dn_l == base_l or dn_l.endswith("," + base_l)
 
-    return e['nTSecurityDescriptor'].raw_values[0]
 
-def safe_get_acetype(ace) -> int:
+def _get_dacl(sd) -> Optional[object]:
+    # Impacket a veces expone 'Dacl' como key o 'dacl' como propiedad
     try:
-        if hasattr(ace, 'fields') and isinstance(ace.fields, dict) and 'AceType' in ace.fields:
-            return int(ace.fields['AceType'])
+        return sd["Dacl"]  # type: ignore[index]
     except Exception:
-        pass
-    try:
-        return int(ace['AceType'])
-    except Exception:
-        pass
-    try:
-        return int(getattr(ace, 'AceType', 0))
-    except Exception:
-        return 0
-
-# ==== Lógica principal ====
-def check_writeowner_for_dn(conn: Connection, target_dn: str, eff_sids: Set[str], verbose: bool=False) -> Tuple[bool, List[str]]:
-    msgs: List[str] = []
-    # Intento OWNER|DACL
-    raw_sd = fetch_sd_raw(conn, target_dn, 0x05)
-    if not raw_sd:
-        # Reintento DACL-only
-        raw_sd = fetch_sd_raw(conn, target_dn, 0x04)
-        if not raw_sd:
-            msgs.append("[-] No se pudo obtener nTSecurityDescriptor (ni 0x05 ni 0x04).")
-            return False, msgs
-        msgs.append("[INFO] nTSecurityDescriptor size: {} bytes (sdflags=0x04)".format(len(raw_sd)))
-    else:
-        msgs.append("[INFO] nTSecurityDescriptor size: {} bytes (sdflags=0x05)".format(len(raw_sd)))
-
-    ctrl, o_off, g_off, s_off, d_off = parse_sd_header(raw_sd)
-    if ctrl is not None:
-        msgs.append(f"[DEBUG] SD.Control=0x{ctrl:04x}  DaclOffset={d_off}")
-    if not d_off:
-        msgs.append("[-] DACL ausente en SD.")
-        return False, msgs
-
-    sd = SR_SECURITY_DESCRIPTOR(raw_sd)
-    dacl = getattr(sd, 'Dacl', None)
-    if (dacl is None or not getattr(dacl, 'aces', None)) and d_off:
         try:
-            dacl = IMPACL(); dacl.fromString(raw_sd[d_off:])
-        except Exception as ex:
-            msgs.append(f"[DEBUG] Error parseando DACL manualmente: {ex}")
-
-    if dacl is None or not getattr(dacl, 'aces', None):
-        msgs.append("[-] DACL presente pero sin ACEs (o no se pudo parsear).")
-        return False, msgs
-
-    has_write_owner = False
-    matched_aces = 0
-    grant_detail = None
-
-    for ace in dacl.aces:
-        try:
-            trustee = ace['Ace']['Sid'].formatCanonical()
+            return getattr(sd, "dacl", None)
         except Exception:
-            continue
-        if trustee not in eff_sids:
-            continue
-        matched_aces += 1
-        raw_mask = mask_to_int(ace['Ace']['Mask'])
-        exp_mask = expand_generic(raw_mask)
-        if verbose:
-            at = safe_get_acetype(ace)
-            msgs.append(f"    [ACE] Trustee={trustee} AceType=0x{at:02x} MaskRaw=0x{raw_mask:08x} MaskExp=0x{exp_mask:08x}")
-        if exp_mask & WRITE_OWNER:
-            has_write_owner = True
-            grant_detail = (trustee, raw_mask, exp_mask)
+            return None
 
-    msgs.append(f"[INFO] ACEs que aplican al token del usuario: {matched_aces}")
-    if has_write_owner and grant_detail:
-        t, mr, me = grant_detail
-        msgs.append(f"[+] YES: WriteOwner sobre {target_dn} (concedido por {t}, MaskRaw=0x{mr:08x}, MaskExp=0x{me:08x})")
-    else:
-        msgs.append(f"[-] NO: WriteOwner sobre {target_dn}")
-    return has_write_owner, msgs
 
-def enumerate_acls_for_sid(conn: Connection, dns: List[str], filter_sid: str, resolve_sid_func, base_dn: str):
-    for dn in dns:
-        # Saltar DNs extraños/malformados
-        if not isinstance(dn, str) or '=' not in dn:
-            # print(f"\n[ACL] {dn}\n    [!] DN inválido, se omite.")
-            continue
+def parse_acl_entries(
+    entries: Iterable[Tuple[str, SR_SECURITY_DESCRIPTOR]],
+    filter_sid: Optional[str] = None,
+    resolve_sid: Optional[Callable[[str], str]] = None,
+    only_escalation: bool = False,
+    bh_compat: bool = True,
+) -> None:
+    for dn, sd in entries:
+        print(f"[ACL] {dn}")
 
-        try:
-            raw_sd = fetch_sd_raw(conn, dn, 0x04)  # DACL only
-        except LDAPInvalidDnError:
-            # print(f"\n[ACL] {dn}\n    [!] DN inválido (LDAPInvalidDnError), se omite.")
-            continue
-        except Exception:
-            # print(f"\n[ACL] {dn}\n    [!] Error inesperado al leer SD, se omite.")
-            continue
-
-        if not raw_sd:
-            print(f"\n[ACL] {dn}\n    [!] No DACL or ACEs present")
-            continue
-
-        _, _, _, _, d_off = parse_sd_header(raw_sd)
-
-        try:
-            sd = SR_SECURITY_DESCRIPTOR(raw_sd)
-            dacl = getattr(sd, 'Dacl', None)
-            if (dacl is None or not getattr(dacl, 'aces', None)) and d_off:
-                dacl = IMPACL(); dacl.fromString(raw_sd[d_off:])
-        except Exception:
-            dacl = None
-
-        if dacl is None or not getattr(dacl, 'aces', None):
-            print(f"\n[ACL] {dn}\n    [!] No ACEs referencing SID {filter_sid} on this object.\n    [!] No matching rights found.")
-            continue
-
-        matched = []
-        for ace in dacl.aces:
+        dacl = _get_dacl(sd)
+        aces = getattr(dacl, "aces", None) if dacl is not None else None
+        if not dacl or not aces:
             try:
-                trustee = ace['Ace']['Sid'].formatCanonical()
+                ctrl = getattr(sd, "Control", 0)
+                present = bool(ctrl & SE_DACL_PRESENT)
+                print(f"    [!] No DACL o no hay ACEs presentes (SE_DACL_PRESENT={present})")
+            except Exception:
+                print("    [!] No DACL o no hay ACEs presentes")
+            continue
+
+        printed = False
+        for ace in aces:
+            try:
+                sid = ace["Ace"]["Sid"].formatCanonical()
+                if filter_sid and sid != filter_sid:
+                    continue
+
+                mask = _mask_to_int(ace["Ace"]["Mask"])  # ← FIX principal
+                acetype = ace["AceType"]
+
+                if not _should_print_ace(mask, only_escalation, bh_compat):
+                    continue
+
+                printed = True
+                rights = _decode_rights(mask)
+                unknown_bits = mask & (~ALL_RIGHTS_MASK)
+
+                print("  🔐 ACE Summary:")
+                print(f"    ACE Type:       {_ace_type_name(acetype)}")
+                print(f"    SID:            {sid}")
+                resolved = _resolve_sid_safe(sid, resolve_sid)
+                print(f"    Resolved SID:   {resolved}")
+                print(f"    Mask (hex):     {hex(mask)}")
+                print("    Rights:")
+                if rights:
+                    for r in rights:
+                        print(f"      ✅ {r}")
+                else:
+                    print("      – (no se reconocieron derechos en esta máscara)")
+                if unknown_bits:
+                    print(f"      … Bits desconocidos: {hex(unknown_bits)}")
+
+                kk = _key_rights(mask, bh_compat)
+                print("    Key rights (quick check):")
+                print(_format_bool("  WriteOwner", kk["WriteOwner"]))
+                print(_format_bool("  WriteDACL", kk["WriteDACL"]))
+                print(_format_bool("  GenericAll", kk["GenericAll"]))
+                if kk["GenericWrite_direct"]:
+                    print(_format_bool("  GenericWrite", True, "YES (direct)"))
+                elif kk["GenericWrite_derived"]:
+                    print(_format_bool("  GenericWrite", True, "YES (derived)"))
+                else:
+                    print(_format_bool("  GenericWrite", False))
+                if (not kk["GenericWrite_direct"]) and kk["GenericWrite_derived"]:
+                    print("    [i] GenericWrite (derived) inferido por WriteProperty/Self (compatibilidad BH).")
+                print("")
+            except Exception as e:
+                print(f"    [!] Error al procesar ACE: {e}")
+
+        if filter_sid and not printed:
+            print(f"    [!] No hay ACEs que referencien SID {filter_sid} en este objeto.")
+        elif not printed:
+            print("    [!] No hay ACEs relevantes para mostrar con los filtros actuales.")
+
+
+def enumerate_acls_for_sid(
+    sock,
+    filter_sid: Optional[str],
+    target_dn: Optional[str] = None,
+    resolve_sid: Optional[Callable[[str], str]] = None,
+    only_escalation: bool = False,
+    bh_compat: bool = True,
+) -> None:
+    entries = sock.get_effective_control_entries()
+    if target_dn:
+        entries = [(dn, sd) for dn, sd in entries if _is_dn_under(dn, target_dn)]
+    parse_acl_entries(entries, filter_sid, resolve_sid, only_escalation, bh_compat)
+
+
+def check_writeowner_for_dn(sock, target_dn: str, sid: str) -> bool:
+    entries = sock.get_effective_control_entries()
+    for dn, sd in entries:
+        if dn.lower() != target_dn.lower():
+            continue
+        dacl = _get_dacl(sd)
+        aces = getattr(dacl, "aces", None) if dacl else None
+        if not aces:
+            continue
+        for ace in aces:
+            try:
+                if ace["Ace"]["Sid"].formatCanonical() != sid:
+                    continue
+                mask = _mask_to_int(ace["Ace"]["Mask"])
+                has_wo = bool(mask & 0x00080000)
+                print(f"[CHECK] {dn} — SID {sid} WriteOwner: {'YES' if has_wo else 'NO'} (mask={hex(mask)})")
+                return has_wo
             except Exception:
                 continue
-            if trustee == filter_sid:
-                matched.append((ace, trustee))
+    print(f"[CHECK] {target_dn} — no se encontró ACE para SID {sid}")
+    return False
 
-        if not matched:
-            print(f"\n[ACL] {dn}\n    [!] No ACEs referencing SID {filter_sid} on this object.\n    [!] No matching rights found.")
-            continue
 
-        for ace, trustee in matched:
-            raw_mask = mask_to_int(ace['Ace']['Mask'])
-            rights = quick_rights(raw_mask)
-            try:
-                at_val = int(ace.fields.get('AceType', 0)) if hasattr(ace, 'fields') else int(ace['AceType'])
-            except Exception:
-                at_val = 0
-            ace_type = "ACCESS_ALLOWED" if at_val == 0x00 else ("ACCESS_DENIED" if at_val == 0x01 else f"0x{at_val:02x}")
-            resolved = resolve_sid_func(conn, base_dn, trustee)
+def decode_mask(mask: int) -> List[str]:
+    return _decode_rights(mask)
 
-            print(f"\n[ACL] {dn}")
-            print("  🔐 ACE Summary:")
-            print(f"    ACE Type:       {ace_type}")
-            print(f"    SID:            {trustee}")
-            print(f"    Resolved SID:   {resolved}")
-            print(f"    Mask (hex):     0x{rights['raw']:08x}")
-            print("    Rights:")
-            if rights['WriteProperty']: print("      ✅ WriteProperty")
-            if rights['ControlAccess']: print("      ✅ ControlAccess")
-            if rights['ReadProperty']:  print("      ✅ ReadProperty")
-            if rights['unknown_lowbits']: print(f"      … Unknown bits: 0x{rights['unknown_lowbits']:08x}")
-            print("    Key rights (quick check):")
-            print(f"      - WriteOwner: {'YES' if rights['WriteOwner'] else 'NO'}")
-            print(f"      - WriteDACL:  {'YES' if rights['WriteDACL'] else 'NO'}")
-            print(f"      - GenericAll: {'YES' if rights['GenericAll'] else 'NO'}")
-            print(f"      - GenericWrite:{'YES' if rights['GenericWrite'] else 'NO'}")
-            print(f"      - GenericRead: {'YES' if rights['GenericRead'] else 'NO'}")
-            print(f"      - Delete:     {'YES' if rights['Delete'] else 'NO'}")
+
+def summarize_mask(mask: int, bh_compat: bool = True) -> dict:
+    return _key_rights(mask, bh_compat)
 
 
 
