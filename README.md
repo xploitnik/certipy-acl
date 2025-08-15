@@ -31,33 +31,37 @@ python3 -m certipy_tool \
   -u 'judith.mader@certified.htb' \
   -p 'judith09' \
   -d certified.htb \
-  --dc-ip 10.129.231.186 
+  --dc-ip 10.129.231.186
+  --resolve-sids
 ```
 
 ### 🔹 With filtering options
 ```bash
 
-Exaple: 1 (Without a Target Object)
+Exaple: 1
+#Without a Target Object (--target-dn)
 python3 -m certipy_tool   \
 -u 'judith.mader@certified.htb' \
 -p 'judith09' \
 -d certified.htb \
 --dc-ip 10.129.231.186   \
 --filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1103'   \
---resolve-sids --hits-only
+--resolve-sids \
+--hits-only
 
 Example: 2 (with Target Object)
+# targeting (--target-dn)
 python3 -m certipy_tool \
--u 'judith.mader@certified.htb' \
--p 'judith09' \
--d certified.htb \
---dc-ip 10.129.231.186 \
---target-dn 'CN=Management,CN=Users,DC=certified,DC=htb' \ #targetting the object to filter our noise
---filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1103' \
---resolve-sids --hits-only
+  -u 'judith.mader@certified.htb' \
+  -p 'judith09' \
+  -d certified.htb \
+  --dc-ip 10.129.231.186 \
+  --target-dn 'CN=Management,CN=Users,DC=certified,DC=htb' \
+  --filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1103' \
+  --resolve-sids \
+  --hits-only
 ```
 NOTE:
-Note for README:
 If you are checking RID 1104, update --filter-sid to end in -1104 and change --target-dn from CN=Management,... to CN=management service,... (or the exact CN of the target object). Always quote DNs and SIDs.
 
 ```
