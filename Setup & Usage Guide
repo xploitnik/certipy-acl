@@ -1,117 +1,149 @@
-Certipy ACL Tool — Setup & Usage Guide (Flat Version)
+# ⚙️ Certipy ACL Tool — Setup & Usage Guide (Flat Version)
 
-This tool silently binds to LDAP and parses Active Directory security descriptors (DACLs), decoding Access Control Entries (ACEs) for privilege escalation insights.
+This tool silently binds to LDAP and parses Active Directory security descriptors (DACLs), decoding Access Control Entries (ACEs) for privilege escalation insights. Unlike older versions, ACEs are now printed directly in the terminal — no more hidden output.
 
-1. Clone the Repository
+---
 
-git clone https://github.com/xploitnik/certipy-acl.git
-cd certipy-acl
+## 1. Clone the Repository
 
-2. Create & Activate a Python Virtual Environment
+git clone https://github.com/xploitnik/certipy-acl.git  
+cd certipy-acl  
+
+---
+
+## 2. Create & Activate a Python Virtual Environment
 
 We strongly recommend isolating your environment.
 
-python3 -m venv certipy-acl-env
-source certipy-acl-env/bin/activate
+python3 -m venv certipy-acl-env  
+source certipy-acl-env/bin/activate  
 
 Then install the required dependencies:
 
-pip install ldap3 impacket pyasn1 pyasn1-modules
+pip install ldap3 impacket pyasn1 pyasn1-modules  
 
-3. Fix the Folder Structure (One-Time Setup)
+---
 
-The Python files must live inside a certipy_tool/ package folder.
+## 3. Fix the Folder Structure (One-Time Setup)
 
-mkdir certipy_tool
-mv *.py certipy_tool/
-touch certipy_tool/__init__.py
+The Python files must live inside a `certipy_tool/` package folder.
+
+mkdir certipy_tool  
+mv *.py certipy_tool/  
+touch certipy_tool/__init__.py  
 
 Final structure should now look like:
 
-certipy-acl/
-├── certipy_tool/
-│   ├── auth.py
-│   ├── parse_acl.py
-│   ├── __main__.py
-│   └── __init__.py
-├── README.md
-├── LICENSE
+certipy-acl/  
+├── certipy_tool/  
+│   ├── auth.py  
+│   ├── parse_acl.py  
+│   ├── __main__.py  
+│   └── __init__.py  
+├── README.md  
+├── LICENSE  
 
-4. Navigate to the Correct Path Before Running
+---
 
-cd /home/xpl0itnik/certipy/certipy-acl
+## 4. Navigate to the Correct Path Before Running
 
-5. Run the Tool
+cd /home/xpl0itnik/certipy/certipy-acl  
 
-Show Help:
+---
 
-python3 -m certipy_tool 
-python3 -m certipy_tool --help
+## 5. Run the Tool
 
-Example Usage (Certified HTB):
+### Show Help
+python3 -m certipy_tool  
+python3 -m certipy_tool --help  
+
+---
+
+### Example Usage (Certified HTB)
 
 python3 -m certipy_tool \
   -u 'judith.mader@certified.htb' \
   -p 'judith09' \
-  -target certified.htb \
-  -dc-ip 10.129.231.186
+  -d certified.htb \
+  --dc-ip 10.129.231.186 \
+  --resolve-sids  
 
-Global Usage
+---
+
+### Global Usage
 
 python3 -m certipy_tool \
   -u '<user>@<domain>' \
   -p '<password>' \
-  -target <fqdn or IP> \
-  -dc-ip <domain controller IP>
+  -d <fqdn or domain name> \
+  --dc-ip <domain controller IP>  
 
-This command binds to LDAP, retrieves security descriptors for directory objects, and decodes DACLs to reveal:
+---
 
-WriteOwner
+## 🔑 What It Does
 
-WriteDACL
+This command binds to LDAP, retrieves security descriptors for directory objects, and decodes DACLs to reveal effective escalation rights:
 
-GenericWrite
+- WriteOwner  
+- WriteDACL  
+- GenericWrite  
+- GenericAll  
 
-GenericAll
+---
 
-Optional Extensions & Filtering
+## 🧩 Optional Extensions & Filtering
 
 You can extend the output control using the following flags:
 
---resolve-sids
+- `--resolve-sids`  
+Resolves raw SIDs into human-readable names using LDAP lookups.
 
-Resolves raw SIDs into user- or group-readable names using LDAP lookups.
+- `--filter-sid <SID>`  
+Only shows ACEs that match this specific SID (e.g., your current user SID).  
+Example:  
+--filter-sid S-1-5-21-729746778-2675978091-3820388244-1103  
 
---filter-sid <SID>
+- `--target-dn <DN>`  
+Limit search to a single object or subtree. Useful to focus on specific groups/users.  
+Example:  
+--target-dn 'CN=Management,CN=Users,DC=certified,DC=htb'  
 
-Only shows ACEs that match this specific SID (e.g., your current user SID).
+- `--hits-only`  
+Show only ACEs that match escalation-relevant rights (WriteOwner, WriteDACL, GenericAll, GenericWrite).
 
-Example:
+- `--only-escalation`  
+Alias for `--hits-only`.  
 
---filter-sid S-1-5-21-729746778-2675978091-3820388244-1103
+- `--ldaps`  
+Force LDAPS instead of plain LDAP.  
 
---only-users
+- `--no-bh-compat`  
+Disable GenericWrite inference (BloodHound compatibility mode off).  
 
-Only parses and displays ACEs related to user objects.
+- `--size-limit <N>`  
+Only parse the first N objects (performance testing).  
 
-Useful if you want to ignore groups, computers, or other object classes.
+---
 
-💡 Recommendation:
-If you're unsure whether your current user has control over groups or users:
+## 💡 Recommended Workflow
 
-Run once with --only-users
+1. First run with your current user SID filter:  
+   --filter-sid <yourSID> --hits-only --resolve-sids  
 
-Run again without it — to catch group-level permissions (e.g., over "Management")
+2. If nothing useful appears, expand search with:  
+   --target-dn <OU or CN>  
 
-Notes
+3. Compare results with and without `--hits-only` to check noise vs. stealth escalation paths.  
 
-This tool is built for:
+---
 
-Red teamers seeking silent enumeration
+## 🧠 Use Cases
 
-CTF players avoiding noisy tools like BloodHound
+This tool is built for:  
+- 🔴 Red teamers seeking **silent enumeration**  
+- 🧩 CTF players avoiding noisy tools like BloodHound  
+- 🕵️ Researchers investigating shadow credentials or object takeovers  
 
-Researchers investigating shadow credentials or object takeovers
+Created by **@xploitnik** — powered by **ldap3**, **impacket**, and a custom Certipy ACL module.  
 
-Created by @xploitnik — powered by ldap3, impacket, and a custom Certipy ACL module.
 
