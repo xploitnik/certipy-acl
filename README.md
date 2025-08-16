@@ -19,7 +19,7 @@ Your feedback and contributions are highly appreciated!
 ### 🔹 Basic
 python3 -m certipy_tool \
   -u '<user@domain>' \
-  -p '<password>' \
+  -p 'Password' \
   -d <domain_fqdn> \
   --dc-ip <dc_ip> \
   --target-dn '<distinguished_name>' \
