@@ -22,14 +22,15 @@ This guide explains how to **maximize the power of the `certipy-acl` tool** by c
 Start with any valid domain user. You can directly enumerate user objects and their raw SIDs.
 
 ---
-ldapsearch -H ldap://<DC_IP> \
-  -D 'judith.mader@certified.htb' \
-  -w 'judith09' \
-  -b 'DC=certified,DC=htb' \
-  -s sub '(objectClass=user)' \
+```bash
+ldapsearch -H ldap://xx.xx.xx.xx \
+  -D "user@local.htb" \
+  -w 'Password' \
+  -b "DC=local,DC=local" \
+  "(|(objectClass=user)(objectClass=group))" \
   sAMAccountName objectSid > raw_sids.ldif
----
 
+```
 ---
 
 ### 2. 📚 **Decode SIDs and Build Your Map**
