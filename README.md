@@ -26,15 +26,17 @@ python3 -m certipy_tool \
   [--filter-sid '<sid>'] [--resolve-sids] [--hits-only] [--ldaps] [--verbose]
 
 # Example Certified.htb
+```
 python3 -m certipy_tool \
   -u 'judith.mader@certified.htb' \
   -p 'judith09' \
   -d certified.htb \
   --dc-ip 10.129.231.186 \
   --resolve-sids
-
+```
 ### 🔹 With filtering options
 # Example 1: without a Target Object (--target-dn)
+```
 python3 -m certipy_tool \
   -u 'judith.mader@certified.htb' \
   -p 'judith09' \
@@ -43,8 +45,10 @@ python3 -m certipy_tool \
   --filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1103' \
   --resolve-sids \
   --hits-only
+```
 
 # Example 2: with Target Object
+```
 python3 -m certipy_tool \
   -u 'judith.mader@certified.htb' \
   -p 'judith09' \
@@ -54,24 +58,9 @@ python3 -m certipy_tool \
   --filter-sid 'S-1-5-21-729746778-2675978091-3820388244-1103' \
   --resolve-sids \
   --hits-only
+```
 
 NOTE: If you are checking RID 1104, update --filter-sid to end in -1104 and change --target-dn accordingly. Always quote DNs and SIDs.
-
-Full syntax:
-python3 -m certipy_tool \
-  -u '<user@domain>' \
-  -p '<password>' \
-  -d <domain_fqdn> \
-  --dc-ip <dc_ip> \
-  [--target-dn '<distinguished_name>'] \
-  [--filter-sid '<sid>'] \
-  [--size-limit <N>] \
-  [--check-writeowner] \
-  [--only-escalation | --hits-only] \
-  [--resolve-sids] \
-  [--ldaps] \
-  [--no-bh-compat] \
-  [--verbose]
 
 ---
 
