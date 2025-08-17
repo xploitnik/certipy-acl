@@ -1,4 +1,3 @@
-# certipy_tool/parse_acl.py
 # -*- coding: utf-8 -*-
 from typing import Callable, Iterable, List, Optional, Tuple
 
@@ -95,15 +94,38 @@ def _decode_rights(mask: int) -> List[str]:
 def _key_rights(mask: int, bh_compat: bool = True) -> dict:
     has_write_owner = bool(mask & 0x00080000)
     has_write_dacl = bool(mask & 0x00040000)
-    has_generic_all = bool(mask & 0x10000000)
+    has_generic_all_direct = bool(mask & 0x10000000)
     has_gw_direct = bool(mask & 0x40000000)
     has_writeprop = bool(mask & 0x00000020)
     has_self = bool(mask & 0x00000008)
     has_gw_derived = bh_compat and (has_writeprop or has_self)
+
+    # === GenericAll "equivalente" por mapeo genérico expandido ===
+    # Conjunto de derechos que, en práctica, implica Full Control sobre objetos DS.
+    # (No exigimos Synchronize ni AccessSystemSecurity.)
+    need_ds = (
+        (mask & 0x00000001) and  # CreateChild
+        (mask & 0x00000002) and  # DeleteChild
+        (mask & 0x00000004) and  # ListChildren
+        (mask & 0x00000010) and  # ReadProperty
+        (mask & 0x00000020) and  # WriteProperty
+        (mask & 0x00000040) and  # DeleteTree
+        (mask & 0x00000080) and  # ListObject
+        (mask & 0x00000100)      # ControlAccess
+    )
+    need_std = (
+        (mask & 0x00010000) and  # Delete
+        (mask & 0x00020000) and  # ReadControl
+        (mask & 0x00040000) and  # WriteDACL
+        (mask & 0x00080000)      # WriteOwner
+    )
+    has_generic_all_derived = bool(need_ds and need_std)
+
     return {
         "WriteOwner": has_write_owner,
         "WriteDACL": has_write_dacl,
-        "GenericAll": has_generic_all,
+        "GenericAll_direct": has_generic_all_direct,
+        "GenericAll_derived": has_generic_all_derived,
         "GenericWrite_direct": has_gw_direct,
         "GenericWrite_derived": has_gw_derived,
     }
@@ -121,7 +143,8 @@ def _should_print_ace(mask: int, only_escalation: bool, bh_compat: bool) -> bool
         [
             kk["WriteOwner"],
             kk["WriteDACL"],
-            kk["GenericAll"],
+            kk["GenericAll_direct"],
+            kk["GenericAll_derived"],
             kk["GenericWrite_direct"],
             kk["GenericWrite_derived"],
         ]
@@ -183,7 +206,7 @@ def parse_acl_entries(
                 if filter_sid and sid != filter_sid:
                     continue
 
-                mask = _mask_to_int(ace["Ace"]["Mask"])  # ← FIX principal
+                mask = _mask_to_int(ace["Ace"]["Mask"])
                 acetype = ace["AceType"]
 
                 if not _should_print_ace(mask, only_escalation, bh_compat):
@@ -212,7 +235,12 @@ def parse_acl_entries(
                 print("    Key rights (quick check):")
                 print(_format_bool("  WriteOwner", kk["WriteOwner"]))
                 print(_format_bool("  WriteDACL", kk["WriteDACL"]))
-                print(_format_bool("  GenericAll", kk["GenericAll"]))
+                if kk["GenericAll_direct"]:
+                    print(_format_bool("  GenericAll", True, "YES (direct)"))
+                elif kk["GenericAll_derived"]:
+                    print(_format_bool("  GenericAll", True, "YES (equivalent)"))
+                else:
+                    print(_format_bool("  GenericAll", False))
                 if kk["GenericWrite_direct"]:
                     print(_format_bool("  GenericWrite", True, "YES (direct)"))
                 elif kk["GenericWrite_derived"]:
@@ -274,6 +302,7 @@ def decode_mask(mask: int) -> List[str]:
 
 def summarize_mask(mask: int, bh_compat: bool = True) -> dict:
     return _key_rights(mask, bh_compat)
+
 
 
 
