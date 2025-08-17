@@ -74,25 +74,6 @@ More tactics & OPSEC tips: **[🎭 Stealth Playbook](docs/stealth-playbook.md)**
   <img src="docs/images/acl_Generic_All.png" width="350" alt="GenericAll example">
 </a>
 
----
-
-## Flags you’ll actually use (90% cases)
-
-- `--target-dn '<DN>'` — limit to a **single object** (quote the DN)  
-- `--enum-base '<DN>'` — limit enumeration to a **subtree/OU**  
-- `--filter-sid '<SID>'` — show ACEs where **trustee == SID** (user/group)  
-- `--only-escalation` — focus on **WriteOwner, WriteDACL, GenericAll, GenericWrite**  
-- `--hits-only` — hide entries without matches (clean output)  
-- `--check-writeowner` — quick pass to surface **WriteOwner** only  
-- `--size-limit N` — process only the first **N** objects  
-- `--ldaps` — use LDAP over TLS (636) if available  
-- `--resolve-sids` — resolve SIDs to names via LDAP (slower, more readable)  
-- `--verbose` — print extra diagnostics  
-
-Run `certipy-acl --help` for the full list.
-
----
-
 ## Docs
 
 - Setup & Usage: `docs/guides/setup_usage_guide.md`  
