@@ -1,26 +1,41 @@
-[tool.poetry]
-name = "certipy-acl"
-version = "0.2.0"
-description = "Lightweight LDAP ACL mapper with real ACE parsing"
-authors = ["xploitnik <you@example.com>"]
-license = "MIT"
-readme = "README.md"
-packages = [{ include = "certipy_acl", from = "src" }]
-
-[tool.poetry.scripts]
-certipy-acl = "certipy_acl.cli:main"
-
-[tool.poetry.dependencies]
-python = "^3.11"
-ldap3 = "*"
-impacket = "*"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8"
-ruff = "^0.5"
-mypy = "^1.10"
-pre-commit = "^3"
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "certipy-acl"               # nombre del paquete publicado
+version = "0.1.0"
+description = "Lightweight LDAP ACL mapper for AD (stealthy, single LDAP bind)."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Judith Mader (xpl0itnik)" }]
+requires-python = ">=3.8"
+
+dependencies = [
+  "ldap3>=2.9",
+  "impacket>=0.11.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/<tu-usuario>/certipy-acl"
+Issues = "https://github.com/<tu-usuario>/certipy-acl/issues"
+
+# crea un binario `certipy-acl` que llama a main()
+[project.scripts]
+certipy-acl = "certipy_tool.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["certipy_tool*"]
+
+# Opcional: herramientas de dev
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+select = ["E","F","I"]
+
