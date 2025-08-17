@@ -32,24 +32,25 @@ certipy-acl \
   --resolve-sids
 ```
 
-Surgical: filter a trustee on a specific object
+Filter by trustee SID
+
+```
+certipy-acl \
+  -u 'user@domain.local' -p 'Password' \
+  -d domain.local --dc-ip 10.0.0.10 \
+  --filter-sid 'S-1-5-21-...-RID' \
+  --resolve-sids
+```
+
+Optional: Surgical WITH --target-dn
+
 ```
 certipy-acl \
   -u 'user@domain.local' -p 'Password' \
   -d domain.local --dc-ip 10.0.0.10 \
   --target-dn 'CN=SomeUser,CN=Users,DC=domain,DC=local' \
   --filter-sid 'S-1-5-21-...-RID' \
-  --only-escalation --hits-only --resolve-sids
-```
-
-Target a subtree (e.g., CN=Users only)
-```
-certipy-acl \
-  -u 'user@domain.local' -p 'Password' \
-  -d domain.local --dc-ip 10.0.0.10 \
-  --enum-base 'CN=Users,DC=domain,DC=local' \
-  --filter-sid 'S-1-5-21-...-RID' \
-  --only-escalation --hits-only --resolve-sids --size-limit 1000
+  --resolve-sids
 ```
 
 ## Choose your stealth level (at a glance)
