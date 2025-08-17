@@ -22,7 +22,7 @@ pip install -e .
 certipy-acl \
   -u 'user@domain.local' -p 'Password' \
   -d domain.local --dc-ip 10.0.0.10 \
-  --resolve-sids --hits-only
+  --resolve-sids 
 ```
 
 ```bash
@@ -32,7 +32,7 @@ certipy-acl \
   -d domain.local --dc-ip 10.0.0.10 \
   --target-dn 'CN=SomeUser,CN=Users,DC=domain,DC=local' \
   --filter-sid 'S-1-5-21-...-RID' \
-  --resolve-sids --hits-only
+  --resolve-sids 
 ```
 
 > Also works as a module: `python -m certipy_tool --help`
