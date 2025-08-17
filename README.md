@@ -4,6 +4,12 @@
 
 A small CLI that binds once to LDAP and prints **real ACEs** from DACLs (e.g., **WriteOwner**, **WriteDACL**, **GenericAll**, **GenericWrite**). It complements Certipy by focusing on quiet, precise ACL reads—no graph simulation or transitive guessing.
 
+- Single LDAP bind → fetches `nTSecurityDescriptor` only where you ask  
+- Filter by **SID** (user/group) to see exactly *who controls what*  
+- Scope by **object** (`--target-dn`) or **subtree** (`--enum-base`)  
+- Focus output on **escalation rights** (`--only-escalation`, `--hits-only`)  
+- Optional **SID resolution**, **LDAPS**, and **size limits** for OPSEC  
+
 ---
 
 ## Install
@@ -13,86 +19,77 @@ pip install -e .
 # Requires Python 3.8+, ldap3>=2.9, impacket>=0.11.0
 ```
 
+> Also works as a module: `python -m certipy_tool --help`
+
 ---
 
-## Quickstart
-
-```bash
-# Basic enumeration
+## Quickstart & Commands
+Basic enumeration
+```
 certipy-acl \
   -u 'user@domain.local' -p 'Password' \
   -d domain.local --dc-ip 10.0.0.10 \
-  --resolve-sids 
+  --resolve-sids
 ```
 
-```bash
-# Filter a trustee on a specific object
+Surgical: filter a trustee on a specific object
+```
 certipy-acl \
   -u 'user@domain.local' -p 'Password' \
   -d domain.local --dc-ip 10.0.0.10 \
   --target-dn 'CN=SomeUser,CN=Users,DC=domain,DC=local' \
   --filter-sid 'S-1-5-21-...-RID' \
-  --resolve-sids 
+  --only-escalation --hits-only --resolve-sids
 ```
 
-> Also works as a module: `python -m certipy_tool --help`
+Target a subtree (e.g., CN=Users only)
+```
+certipy-acl \
+  -u 'user@domain.local' -p 'Password' \
+  -d domain.local --dc-ip 10.0.0.10 \
+  --enum-base 'CN=Users,DC=domain,DC=local' \
+  --filter-sid 'S-1-5-21-...-RID' \
+  --only-escalation --hits-only --resolve-sids --size-limit 1000
+```
+
+## Choose your stealth level (at a glance)
+
+| Level | Scope | OPSEC | Typical use |
+|---:|---|---|---|
+| 🟢 Low | Single SID / object | ✅ High | See what a specific user/group controls |
+| 🟡 Medium | One OU / container | ⚠️ Medium | Recon in a bounded subtree |
+| 🔴 High | Whole domain | ❌ Low | Full privilege map (HTB/CTF or authorized audits) |
+
+More tactics & OPSEC tips: **[🎭 Stealth Playbook](docs/stealth-playbook.md)**
 
 ---
 
 ## What you’ll see
 
 <a href="docs/images/acl_writeowner_judith_management.png">
-  <img src="docs/images/acl_writeowner_judith_management.png" width="475" alt="WriteOwner output">
+  <img src="docs/images/acl_writeowner_judith_management.png" width="475" alt="WriteOwner over Management group">
 </a>
 
-<a href="docs/images/acl_writeowner_judith_management.png">
-  <img src="docs/images/acl_Generic_All.png" width="350" alt="WriteOwner output">
+<a href="docs/images/acl_Generic_All.png">
+  <img src="docs/images/acl_Generic_All.png" width="350" alt="GenericAll example">
 </a>
-
-
-
 
 ---
 
 ## Flags you’ll actually use (90% cases)
 
-- `--target-dn` — limit search to a DN/subtree (quote the DN)
-- `--filter-sid` — show ACEs where trustee == SID
-- `--resolve-sids` — resolve SIDs to names via LDAP
-- `--hits-only` — only show escalation-relevant rights
-- `--size-limit N` — process only the first N objects
-- `--ldaps`, `--verbose`
+- `--target-dn '<DN>'` — limit to a **single object** (quote the DN)  
+- `--enum-base '<DN>'` — limit enumeration to a **subtree/OU**  
+- `--filter-sid '<SID>'` — show ACEs where **trustee == SID** (user/group)  
+- `--only-escalation` — focus on **WriteOwner, WriteDACL, GenericAll, GenericWrite**  
+- `--hits-only` — hide entries without matches (clean output)  
+- `--check-writeowner` — quick pass to surface **WriteOwner** only  
+- `--size-limit N` — process only the first **N** objects  
+- `--ldaps` — use LDAP over TLS (636) if available  
+- `--resolve-sids` — resolve SIDs to names via LDAP (slower, more readable)  
+- `--verbose` — print extra diagnostics  
 
 Run `certipy-acl --help` for the full list.
-
----
-
-## Troubleshooting (OpenSSL 3 / MD4 on Arch/Athena)
-
-If you hit:
-```
-[ERROR] Falló el bind LDAP: unsupported hash type MD4
-```
-
-Enable the legacy provider **for this session only**:
-
-```bash
-cat > ~/.openssl-legacy.cnf <<'EOF'
-openssl_conf = openssl_init
-[openssl_init]
-providers = provider_sect
-[provider_sect]
-default = default_sect
-legacy  = legacy_sect
-[default_sect]
-activate = 1
-[legacy_sect]
-activate = 1
-EOF
-
-OPENSSL_CONF=$HOME/.openssl-legacy.cnf \
-python -m certipy_tool --help
-```
 
 ---
 
@@ -100,6 +97,7 @@ python -m certipy_tool --help
 
 - Setup & Usage: `docs/guides/setup_usage_guide.md`  
 - Usage Strategy: `docs/guides/usage_strategy.md`  
+- 🎭 Stealth Playbook: `docs/stealth-playbook.md`  
 - Project Structure: `docs/reference/project_structure.md`  
 - Known Issues: `docs/known_issues.md`  
 - Case Study (BloodHound vs Certipy-ACL): `docs/case-studies/bloodhound_vs_certipyacl.md`  
