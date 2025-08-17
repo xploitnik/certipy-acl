@@ -41,8 +41,8 @@ certipy-acl \
 
 ## What you’ll see
 
-![Terminal demo](docs/images/demo_acl.png)
-*Example output highlighting WriteOwner / WriteDACL / GenericAll (equivalent).*
+![WriteOwner on Management](docs/images/acl_writeowner_judith_management.png)
+*Example output highlighting WriteOwner.*
 
 ![Comparison](docs/images/bh_comparison.png)
 *Parity with BloodHound for common escalation paths (case study).*
