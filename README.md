@@ -22,38 +22,38 @@ pip install -e .
 ```
 
 ---
+###  How to run
 
-## Quickstart & Commands
-
-Basic enumeration
-```
+**A) Basic enumeration (broader / noisier)**
+```bash
 certipy-acl \
   -u 'user@domain.local' -p 'Password' \
   -d domain.local --dc-ip 10.0.0.10 \
   --resolve-sids
 ```
 
-Filter by trustee SID
-
-```
+**B) RECOMMENDED — filter by trustee SID (no --target-dn needed)**
+```bash
+# Lists ACEs anywhere the trustee matches your SID (stealth-friendly).
 certipy-acl \
   -u 'user@domain.local' -p 'Password' \
   -d domain.local --dc-ip 10.0.0.10 \
   --filter-sid 'S-1-5-21-...-RID' \
-  --resolve-sids
+  --only-escalation --hits-only --resolve-sids
 ```
 
-Optional: Surgical WITH --target-dn
-> Tip: if you don’t know the DN, start with **Filter by trustee SID (recommended)**.
-
-```
+**C) Optional: surgical WITH --target-dn (when you DO know the exact DN)**
+```bash
 certipy-acl \
   -u 'user@domain.local' -p 'Password' \
   -d domain.local --dc-ip 10.0.0.10 \
   --target-dn 'CN=SomeUser,CN=Users,DC=domain,DC=local' \
   --filter-sid 'S-1-5-21-...-RID' \
-  --resolve-sids
+  --only-escalation --hits-only --resolve-sids
 ```
+##
+More tactics & OPSEC tips: 🛡️ [Setup & Usage Guide](docs/guides/setup_usage_guide.md)
+##
 ---
 
 ## What you’ll see
