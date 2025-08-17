@@ -6,10 +6,11 @@
 
 I built **Certipy-ACL** because most options (e.g., BloodHound) ingest the entire AD graph just to tell me what my current account can do. Certipy-ACL takes a quiet, LDAP-first approach: with a single bind it reads real DACLs and maps **SIDs → permissions** for a specific SID/DN/OU, so you can quickly answer **“who can change what?”** without noisy graph crawling.
 
-- **Bind once** → fetches `nTSecurityDescriptor` only where you ask  
-- **Filter by SID** or **scope by DN/OU** (`--target-dn`, `--enum-base`)  
-- **Focus on escalation-relevant rights** (WriteOwner, WriteDACL, GenericAll/Write)  
-- Optional **SID resolution**, **LDAPS**, and **size limits** for OPSEC
+- **Bind once** → fetches `nTSecurityDescriptor` only where you ask
+- **Filter by SID** or **scope by DN/OU** (`--target-dn`, `--enum-base`)
+- **Focus on escalation-relevant rights** (WriteOwner, WriteDACL, GenericAll/Write)
+- Optional **SID resolution**, **LDAPS (636/TLS)**, and **size limits** for OPSEC
+
 
 ---
 
@@ -20,11 +21,10 @@ pip install -e .
 # Requires Python 3.8+, ldap3>=2.9, impacket>=0.11.0
 ```
 
-> Also works as a module: `python -m certipy_tool --help`
-
 ---
 
 ## Quickstart & Commands
+
 Basic enumeration
 ```
 certipy-acl \
@@ -44,6 +44,7 @@ certipy-acl \
 ```
 
 Optional: Surgical WITH --target-dn
+> Tip: if you don’t know the DN, start with **Filter by trustee SID (recommended)**.
 
 ```
 certipy-acl \
