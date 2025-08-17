@@ -56,14 +56,11 @@ certipy-acl \
 
 ## What you’ll see
 
-Filter by trustee SID
+Filter by trustee SID & target-dn
 
 <a href="docs/images/acl_writeowner_judith_management.png">
   <img src="docs/images/acl_writeowner_judith_management.png" width="475" alt="WriteOwner over Management group">
 </a>
-
-
-Surgical WITH --target-dn
 
 <a href="docs/images/acl_Generic_All.png">
   <img src="docs/images/acl_Generic_All.png" width="350" alt="GenericAll example">
