@@ -52,6 +52,22 @@ certipy-acl \
   --filter-sid 'S-1-5-21-...-RID' \
   --resolve-sids
 ```
+---
+
+## What you’ll see
+
+Filter by trustee SID
+
+<a href="docs/images/acl_writeowner_judith_management.png">
+  <img src="docs/images/acl_writeowner_judith_management.png" width="475" alt="WriteOwner over Management group">
+</a>
+
+
+Surgical WITH --target-dn
+
+<a href="docs/images/acl_Generic_All.png">
+  <img src="docs/images/acl_Generic_All.png" width="350" alt="GenericAll example">
+</a>
 
 ## Choose your stealth level (at a glance)
 
@@ -62,18 +78,6 @@ certipy-acl \
 | 🔴 High | Whole domain | ❌ Low | Full privilege map (HTB/CTF or authorized audits) |
 
 More tactics & OPSEC tips: **[🎭 Stealth Playbook](docs/stealth-playbook.md)**
-
----
-
-## What you’ll see
-
-<a href="docs/images/acl_writeowner_judith_management.png">
-  <img src="docs/images/acl_writeowner_judith_management.png" width="475" alt="WriteOwner over Management group">
-</a>
-
-<a href="docs/images/acl_Generic_All.png">
-  <img src="docs/images/acl_Generic_All.png" width="350" alt="GenericAll example">
-</a>
 
 ## Docs
 
