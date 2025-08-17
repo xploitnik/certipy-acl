@@ -60,7 +60,6 @@ certipy-acl \
 - `--filter-sid` — show ACEs where trustee == SID
 - `--resolve-sids` — resolve SIDs to names via LDAP
 - `--hits-only` — only show escalation-relevant rights
-- `--check-writeowner` — quick boolean check (requires `--target-dn` + `--filter-sid`)
 - `--size-limit N` — process only the first N objects
 - `--ldaps`, `--verbose`
 
