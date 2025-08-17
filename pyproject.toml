@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "certipy-acl"
+version = "0.2.0"
+description = "Lightweight LDAP ACL mapper with real ACE parsing"
+authors = ["xploitnik <you@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "certipy_acl", from = "src" }]
+
+[tool.poetry.scripts]
+certipy-acl = "certipy_acl.cli:main"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+ldap3 = "*"
+impacket = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8"
+ruff = "^0.5"
+mypy = "^1.10"
+pre-commit = "^3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
