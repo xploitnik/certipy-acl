@@ -51,10 +51,12 @@ certipy-acl \
   --filter-sid 'S-1-5-21-...-RID' \
   --only-escalation --hits-only --resolve-sids
 ```
-##
+
 More tactics & OPSEC tips: 🛡️ [Setup & Usage Guide](docs/guides/setup_usage_guide.md)
-##
+
+
 ---
+
 
 ## What you’ll see
 
