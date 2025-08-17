@@ -42,10 +42,15 @@ certipy-acl \
 ## What you’ll see
 
 <a href="docs/images/acl_writeowner_judith_management.png">
-  <img src="docs/images/acl_writeowner_judith_management.png" width="750" alt="WriteOwner output">
+  <img src="docs/images/acl_writeowner_judith_management.png" width="475" alt="WriteOwner output">
 </a>
 
-*Example output highlighting WriteOwner.*
+<a href="docs/images/acl_writeowner_judith_management.png">
+  <img src="docs/images/acl_Generic_All.png" width="350" alt="WriteOwner output">
+</a>
+
+
+
 
 ---
 
