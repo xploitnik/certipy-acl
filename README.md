@@ -41,11 +41,11 @@ certipy-acl \
 
 ## What you’ll see
 
-![WriteOwner on Management](docs/images/acl_writeowner_judith_management.png)
-*Example output highlighting WriteOwner.*
+<a href="docs/images/acl_writeowner_judith_management.png">
+  <img src="docs/images/acl_writeowner_judith_management.png" width="750" alt="WriteOwner output">
+</a>
 
-![Comparison](docs/images/bh_comparison.png)
-*Parity with BloodHound for common escalation paths (case study).*
+*Example output highlighting WriteOwner.*
 
 ---
 
