@@ -2,13 +2,14 @@
 
 [![CI](https://github.com/xploitnik/certipy-acl/actions/workflows/ci.yml/badge.svg)](https://github.com/xploitnik/certipy-acl/actions/workflows/ci.yml)
 
-A small CLI that binds once to LDAP and prints **real ACEs** from DACLs (e.g., **WriteOwner**, **WriteDACL**, **GenericAll**, **GenericWrite**). It complements Certipy by focusing on quiet, precise ACL reads—no graph simulation or transitive guessing.
+### Background & Purpose
 
-- Single LDAP bind → fetches `nTSecurityDescriptor` only where you ask  
-- Filter by **SID** (user/group) to see exactly *who controls what*  
-- Scope by **object** (`--target-dn`) or **subtree** (`--enum-base`)  
-- Focus output on **escalation rights** (`--only-escalation`, `--hits-only`)  
-- Optional **SID resolution**, **LDAPS**, and **size limits** for OPSEC  
+I built **Certipy-ACL** because most options (e.g., BloodHound) ingest the entire AD graph just to tell me what my current account can do. Certipy-ACL takes a quiet, LDAP-first approach: with a single bind it reads real DACLs and maps **SIDs → permissions** for a specific SID/DN/OU, so you can quickly answer **“who can change what?”** without noisy graph crawling.
+
+- **Bind once** → fetches `nTSecurityDescriptor` only where you ask  
+- **Filter by SID** or **scope by DN/OU** (`--target-dn`, `--enum-base`)  
+- **Focus on escalation-relevant rights** (WriteOwner, WriteDACL, GenericAll/Write)  
+- Optional **SID resolution**, **LDAPS**, and **size limits** for OPSEC
 
 ---
 
