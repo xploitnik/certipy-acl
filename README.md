@@ -24,7 +24,7 @@ Bind once, enumerate real ACEs/DACLs, and highlight escalation paths — fast an
 
 ---
 
-## 🚀 Install & Example Usage
+## 🚀 Install
 
 > Small examples are shown inline. Expand the full copy/paste block if you want the entire install + examples snippet.  
 > 🔒 OPSEC tip: prefer **Kerberos** where possible (no passwords in shell history).
@@ -36,8 +36,35 @@ Bind once, enumerate real ACEs/DACLs, and highlight escalation paths — fast an
 # sudo apt install -y python3-dev libkrb5-dev build-essential && python3 -m pip install gssapi
 ```
 
+## ⚙️ Usage
 
+### 🌐 Global scan 
 
+- 🚫 `--filter-sid`  
+- 🚫 `--sid-file`  
+- 🚫 `--target-dn` — enumerates `nTSecurityDescriptor` across the Base DN.
+
+> Tip: full-domain scans can be heavy — consider `--size-limit` or target a DN when possible.
+
+### 🔒  NTLM (lab-only)
+
+⚠️ NTLM on CLI stores passwords in shell history — use only in disposable lab shells.  
+
+**Vars:**  
+- 🌐 `DOMAIN="domain.local"`  
+- 👤 `NTLM_USER="USER@${DOMAIN}"`  
+- 🔑 `NTLM_PASS="PASSWORD"`  
+
+**One-line example:**  
+
+```bash
+certipy-acl --auth ntlm \
+  -u "${NTLM_USER}" -p "${NTLM_PASS}" \
+  -d "${DOMAIN}" --dc-ip "${DC_IP}" \
+  --resolve-sids --only-escalation --verbose
+```
+
+---
 
 
 
