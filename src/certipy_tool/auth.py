@@ -1,14 +1,14 @@
 # certipy_tool/auth.py
 # -*- coding: utf-8 -*-
 #
-# Socket LDAP mínimo para Certipy-ACL:
-#  - Bind NTLM (domain\username) a ldap:// o ldaps://
+# Socket LDAP para Certipy-ACL:
+#  - Soporta NTLM y Kerberos (GSSAPI)
 #  - get_effective_control_entries(): devuelve [(dn, SR_SECURITY_DESCRIPTOR)]
 #  - resolve_sid(sid): intenta resolver SIDs a nombre consultando objectSid (binario)
 #
 from typing import List, Tuple
 
-from ldap3 import Server, Connection, ALL, NTLM, SUBTREE
+from ldap3 import Server, Connection, ALL, NTLM, SUBTREE, SASL, GSSAPI
 from ldap3.protocol.microsoft import security_descriptor_control
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR, LDAP_SID
 
@@ -21,11 +21,15 @@ def domain_to_base_dn(domain: str) -> str:
 
 class LDAPSocket:
     def __init__(self, target: str, username: str, password: str,
-                 domain: str, dc_ip: str, use_ldaps: bool = False):
+                 domain: str, dc_ip: str, use_ldaps: bool = False,
+                 auth_method: str = "ntlm", ccache: str = None,
+                 dc_fqdn: str = None, starttls: bool = False):
         """
-        target: host/IP al que conectarse (usa dc_ip para evitar DNS)
-        username: UPN o sAMAccountName
+        target: host/IP al que conectarse
+        username: UPN o sAMAccountName (solo NTLM)
+        password: Contraseña (solo NTLM)
         domain: FQDN del dominio (p.ej. certified.htb)
+        auth_method: "ntlm" o "kerberos"
         """
         self.target = target
         self.username = username
@@ -33,35 +37,50 @@ class LDAPSocket:
         self.domain = domain
         self.dc_ip = dc_ip
         self.use_ldaps = use_ldaps
+        self.auth_method = auth_method
+        self.ccache = ccache
+        self.dc_fqdn = dc_fqdn
+        self.starttls = starttls
 
-        # Server (ldap:// o ldaps://) — ldap3 controla use_ssl
+        # ldap:// o ldaps://
         server = Server(self.target, use_ssl=self.use_ldaps, get_info=ALL)
 
-        # Formato NTLM: DOMAIN\user
-        user_part = username.split("@", 1)[0]
-        ntlm_user = f"{self.domain.split('.')[0].upper()}\\{user_part}"
+        if self.auth_method == "ntlm":
+            # Formato NTLM: DOMAIN\user
+            user_part = username.split("@", 1)[0]
+            ntlm_user = f"{self.domain.split('.')[0].upper()}\\{user_part}"
 
-        # Bind
-        self.conn = Connection(
-            server,
-            user=ntlm_user,
-            password=self.password,
-            authentication=NTLM,
-            auto_bind=True,
-        )
+            self.conn = Connection(
+                server,
+                user=ntlm_user,
+                password=self.password,
+                authentication=NTLM,
+                auto_bind=True,
+            )
+
+        elif self.auth_method == "kerberos":
+            # Kerberos/GSSAPI usa ticket cache (kinit / impacket-getTGT)
+            self.conn = Connection(
+                server,
+                authentication=SASL,
+                sasl_mechanism=GSSAPI,
+                auto_bind=True,
+            )
+
+        else:
+            raise ValueError(f"Unsupported auth method: {self.auth_method}")
 
         self.base_dn = domain_to_base_dn(self.domain)
-        print("[AUTH] LDAP bind successful.")
+        print(f"[AUTH] LDAP bind successful via {self.auth_method.upper()}.")
 
     def get_effective_control_entries(self) -> List[Tuple[str, SR_SECURITY_DESCRIPTOR]]:
         """
         Devuelve lista de (DN, SR_SECURITY_DESCRIPTOR) para todo el bosque bajo base_dn.
-        Sólo pide la DACL (sdflags=0x04) para rendimiento.
+        Solo pide la DACL (sdflags=0x04).
         """
-        controls = security_descriptor_control(sdflags=0x04)  # DACL only
+        controls = security_descriptor_control(sdflags=0x04)
         print(f"[AUTH] Searching objects with ACLs for {self.username}@{self.domain}...")
 
-        # Nota: scope SUBTREE para todo el dominio
         self.conn.search(
             search_base=self.base_dn,
             search_filter="(objectClass=*)",
@@ -77,7 +96,6 @@ class LDAPSocket:
                 sd = SR_SECURITY_DESCRIPTOR(raw_sd)
                 entries.append((entry.entry_dn, sd))
             except Exception:
-                # sin SD o no decodificable
                 continue
 
         return entries
@@ -88,12 +106,10 @@ class LDAPSocket:
         Si falla, devuelve el SID original.
         """
         try:
-            # Convertir SDDL a bytes (binario) con impacket
             sid_obj = LDAP_SID()
             sid_obj.fromCanonical(sid_str)
             sid_bytes = sid_obj.getData()
 
-            # Armar filtro LDAP con bytes escapados (\XX)
             hex_esc = "".join("\\{:02x}".format(b) for b in sid_bytes)
             flt = f"(objectSid={hex_esc})"
 
@@ -108,24 +124,14 @@ class LDAPSocket:
                 return sid_str
 
             e = self.conn.entries[0]
-            # Prioridad a sAMAccountName, luego CN
-            name = None
-            try:
-                name = str(e["sAMAccountName"])
-            except Exception:
-                pass
-            if not name:
+            for attr in ["sAMAccountName", "cn", "distinguishedName"]:
                 try:
-                    name = str(e["cn"])
+                    val = str(e[attr])
+                    if val:
+                        return val
                 except Exception:
-                    pass
-            if not name:
-                # Último recurso: DN
-                try:
-                    name = str(e["distinguishedName"])
-                except Exception:
-                    pass
-            return name or sid_str
+                    continue
+            return sid_str
         except Exception:
             return sid_str
 
