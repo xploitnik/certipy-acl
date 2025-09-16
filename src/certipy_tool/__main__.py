@@ -1,11 +1,12 @@
 # certipy_tool/__main__.py
 # -*- coding: utf-8 -*-
 #
-# CLI principal para Certipy-ACL.
-# Ahora soporta NTLM y Kerberos (GSSAPI).
+# CLI entry for Certipy-ACL.
+# Supports NTLM and Kerberos (GSSAPI) binds.
 #
 import sys
 import argparse
+from typing import List
 
 from .auth import LDAPSocket
 from .parse_acl import (
@@ -18,44 +19,83 @@ BANNER = """\
 [Certipy-ACL] Lightweight LDAP ACL mapper (silent bind)
 """
 
+
+def load_sids_from_file(path: str) -> List[str]:
+    """
+    Read a file and return a list of SID strings.
+    Accepts lines like:
+      Support-Computer1$  , S-1-5-21-...-1103
+      S-1-5-21-...-1125
+    Ignores blank lines and lines starting with '#'.
+    """
+    sids = []
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "," in line:
+                    parts = [p.strip() for p in line.split(",") if p.strip()]
+                    sid_candidate = parts[-1]
+                else:
+                    sid_candidate = line
+                if sid_candidate.upper().startswith("S-1-"):
+                    sids.append(sid_candidate)
+                else:
+                    tokens = line.split()
+                    found = False
+                    for tok in tokens:
+                        if tok.upper().startswith("S-1-"):
+                            sids.append(tok)
+                            found = True
+                            break
+                    if not found:
+                        # skip lines without an SID
+                        continue
+        return sids
+    except Exception as e:
+        raise RuntimeError(f"Failed to read SID file {path}: {e}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Certipy-ACL — Enumeración de ACEs/ACLs vía un único bind LDAP",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    # Autenticación
+    # Authentication
     p.add_argument("--auth", choices=["ntlm", "kerberos"], default="ntlm",
-                   help="Método de autenticación LDAP (por defecto: ntlm)")
-    p.add_argument("-u", "--username", help="Usuario (UPN o sAMAccountName). Obligatorio para NTLM.")
-    p.add_argument("-p", "--password", help="Contraseña. Obligatoria para NTLM.")
-    p.add_argument("-d", "--domain",   required=True, help="FQDN del dominio, p.ej. certified.htb")
-    p.add_argument("--dc-ip",          required=True, help="IP del DC a consultar")
-    p.add_argument("--dc-host", help="FQDN del DC (p.ej. dc.rustykey.htb). Recomendado para Kerberos.")
-    p.add_argument("--ccache", help="Ruta al ccache Kerberos (opcional, si no se usa el default)")
+                   help="Authentication method for LDAP (default: ntlm)")
+    p.add_argument("-u", "--username", help="User (UPN or sAMAccountName). Required for NTLM.")
+    p.add_argument("-p", "--password", help="Password. Required for NTLM.")
+    p.add_argument("-d", "--domain", required=True, help="Domain FQDN, e.g. rustykey.htb")
+    p.add_argument("--dc-ip", required=True, help="DC IP to query")
+    p.add_argument("--dc-host", help="DC FQDN (e.g. dc.rustykey.htb). Recommended for Kerberos.")
+    p.add_argument("--ccache", help="Path to Kerberos ccache (optional)")
 
-    # Filtros / opciones
-    p.add_argument("--filter-sid", help="SID a filtrar (muestra sólo ACEs de este trustee)")
-    p.add_argument("--target-dn",  help="DN base/objetivo para limitar el sub-árbol")
+    # Filters / options
+    p.add_argument("--filter-sid", help="SID to filter (show only ACEs for this trustee)")
+    p.add_argument("--sid-file", help="Path to file with SIDs (or name,SID pairs), one per line.")
+    p.add_argument("--target-dn", help="Base/target DN to limit subtree (e.g. 'CN=Users,DC=...')")
 
-    # Output / comportamiento
-    p.add_argument("--size-limit", type=int, default=0,
-                   help="Limitar nº de objetos procesados (0 = sin límite)")
+    # Behavior / output
+    p.add_argument("--size-limit", type=int, default=0, help="Limit number of objects processed (0 = no limit)")
     p.add_argument("--check-writeowner", action="store_true",
-                   help="Chequear solo si el SID filtrado tiene WriteOwner sobre --target-dn.")
+                   help="Check WriteOwner for --target-dn and --filter-sid only (requires both).")
 
-    # Compatibilidad y UX
+    # Compatibility & UX
     p.add_argument("--only-escalation", dest="only_escalation", action="store_true",
-                   help="Mostrar sólo ACEs con derechos de escalada (WriteOwner/WriteDACL/GenericAll/GenericWrite).")
+                   help="Show only escalation ACEs (WriteOwner/WriteDACL/GenericAll/GenericWrite).")
     p.add_argument("--hits-only", dest="only_escalation", action="store_true",
-                   help="Alias de --only-escalation.")
+                   help="Alias for --only-escalation.")
     p.add_argument("--resolve-sids", action="store_true",
-                   help="Intentar resolver SIDs a nombres usando el socket LDAP.")
-    p.add_argument("--ldaps", action="store_true", help="Usar LDAPS si está disponible.")
-    p.add_argument("--starttls", action="store_true", help="Negociar StartTLS en LDAP (si no se usa --ldaps).")
+                   help="Attempt to resolve SIDs to names using the LDAP socket.")
+    p.add_argument("--ldaps", action="store_true", help="Use LDAPS (636) instead of LDAP.")
+    p.add_argument("--starttls", action="store_true", help="Negotiate StartTLS on LDAP (if not using --ldaps).")
     p.add_argument("--no-bh-compat", dest="bh_compat", action="store_false",
-                   help="Desactiva la marca de GenericWrite (derived) por WriteProperty/Self.")
-    p.add_argument("--verbose", action="store_true", help="Salida más verbosa.")
+                   help="Disable BH-compat derived GenericWrite inference.")
+    p.add_argument("--verbose", action="store_true", help="More verbose output.")
     p.set_defaults(bh_compat=True)
 
     return p
@@ -75,16 +115,20 @@ def main() -> int:
             print(f"[INFO] Target DN: {args.target_dn}")
         if args.filter_sid:
             print(f"[INFO] Filter SID: {args.filter_sid}")
+        if args.sid_file:
+            print(f"[INFO] SID file: {args.sid_file}")
         print(f"[INFO] Auth method: {args.auth}")
 
-    # Conectar: NTLM → --dc-ip; Kerberos → preferimos FQDN
+    # Choose target host:
+    # - NTLM: use --dc-ip as before
+    # - Kerberos: prefer FQDN for SPN (dc-host or dc.<domain>)
     target_host = args.dc_ip if args.auth == "ntlm" else (args.dc_host or f"dc.{args.domain}")
 
     try:
         print("[AUTH] Binding to LDAP...")
         if args.auth == "ntlm":
             if not args.username or not args.password:
-                print("[ERROR] NTLM requiere -u/--username y -p/--password.")
+                print("[ERROR] NTLM requires -u/--username and -p/--password.")
                 return 2
 
         sock = LDAPSocket(
@@ -101,26 +145,27 @@ def main() -> int:
         )
         print("[AUTH] LDAP bind successful.")
     except Exception as e:
-        print(f"[ERROR] Falló el bind LDAP: {e}")
+        print(f"[ERROR] LDAP bind failed: {e}")
         return 1
 
+    # optional SID -> name resolver
     resolver = None
     if args.resolve_sids:
         maybe = getattr(sock, "resolve_sid", None)
         if callable(maybe):
             resolver = maybe
         elif args.verbose:
-            print("[WARN] resolve_sid() no disponible.")
+            print("[WARN] resolve_sid() not available; SIDs will be shown raw.")
 
-    # Check puntual
+    # check-writeowner mode
     if args.check_writeowner:
         if not args.filter_sid or not args.target_dn:
-            print("[ERROR] --check-writeowner requiere --filter-sid y --target-dn.")
+            print("[ERROR] --check-writeowner requires --filter-sid and --target-dn.")
             return 2
         ok = check_writeowner_for_dn(sock, args.target_dn, args.filter_sid)
         return 0 if ok else 3
 
-    # Enumeración normal
+    # enumeration mode
     try:
         if args.size_limit and args.size_limit > 0:
             entries = sock.get_effective_control_entries()
@@ -131,7 +176,7 @@ def main() -> int:
             entries = entries[: args.size_limit]
 
             if args.verbose:
-                print(f"[INFO] Objetos a procesar (limit): {len(entries)}")
+                print(f"[INFO] Objects to process (limit): {len(entries)}")
             parse_acl_entries(
                 entries,
                 filter_sid=args.filter_sid,
@@ -140,16 +185,44 @@ def main() -> int:
                 bh_compat=args.bh_compat,
             )
         else:
-            enumerate_acls_for_sid(
-                sock=sock,
-                filter_sid=args.filter_sid,
-                target_dn=args.target_dn,
-                resolve_sid=resolver,
-                only_escalation=args.only_escalation,
-                bh_compat=args.bh_compat,
-            )
+            # If sid-file provided, iterate over SIDs and run the enumeration per-SID
+            if args.sid_file:
+                try:
+                    sids = load_sids_from_file(args.sid_file)
+                except Exception as e:
+                    print(f"[ERROR] Could not load SID file: {e}")
+                    return 6
+
+                if not sids:
+                    print(f"[WARN] No valid SIDs found in {args.sid_file}")
+                else:
+                    for sid in sids:
+                        print("\n" + "=" * 60)
+                        print(f"[SID-TEST] Enumerating ACLs for SID: {sid}")
+                        print("=" * 60)
+                        try:
+                            enumerate_acls_for_sid(
+                                sock=sock,
+                                filter_sid=sid,
+                                target_dn=args.target_dn,
+                                resolve_sid=resolver,
+                                only_escalation=args.only_escalation,
+                                bh_compat=args.bh_compat,
+                            )
+                        except Exception as e:
+                            print(f"[ERROR] Enumeration failed for {sid}: {e}")
+            else:
+                # single-SID or whole-domain flow (existing behavior)
+                enumerate_acls_for_sid(
+                    sock=sock,
+                    filter_sid=args.filter_sid,
+                    target_dn=args.target_dn,
+                    resolve_sid=resolver,
+                    only_escalation=args.only_escalation,
+                    bh_compat=args.bh_compat,
+                )
     except Exception as e:
-        print(f"[ERROR] Enumeración falló: {e}")
+        print(f"[ERROR] Enumeration failed: {e}")
         return 5
 
     return 0
@@ -157,6 +230,7 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
 
 
 
