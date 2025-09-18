@@ -64,6 +64,12 @@ certipy-acl --auth ntlm \
   --resolve-sids --only-escalation --verbose
 ```
 
+## ⚙️ Usage
+
+### 🌍 Global scope (default)
+
+> TIP: If you don’t pass any filter flags (`--filter-sid`, `--sid-file`, `--target-dn`),  
+Certipy-ACL will enumerate **across the entire Domain**, just like BloodHound’s global collection.  
 ---
 
 
