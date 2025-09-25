@@ -6,7 +6,7 @@
 
 # 🔐 Certipy-ACL
 
-**Stealthy LDAP ACL mapper for Active Directory.** Bind once, enumerate real ACEs/DACLs, and highlight escalation paths — fast and quiet.
+**Certipy-acl is a focused, LDAP-first tool for enumerating Active Directory ACLs. It minimizes noisy attribute pulls by reading only nTSecurityDescriptor for the scope you select, surfaces real ACEs and DACLs, and highlights likely privilege-escalation edges (WriteOwner, WriteDacl, GenericAll/Write, AddSelf). Designed for both red-team triage and blue-team analysis, it supports NTLM or Kerberos auth, LDAPS/StartTLS, SID resolution, BloodHound-compatible export, and an --extended-rights mode to reveal control-access and other object-specific rights.
 
 ---
 
