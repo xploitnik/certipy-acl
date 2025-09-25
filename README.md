@@ -143,6 +143,24 @@ Run tests locally with `pytest -q`. CI is configured via GitHub Actions (`.githu
 
 ---
 
+## 📂 Project Structure
+
+```
+.
+├── src/certipy_tool/     # Core tool code (parsers, auth, main CLI)
+├── tests/                # Unit and integration tests
+├── docs/                 # Extra documentation and guides
+├── .github/              # CI workflows and templates
+├── README.md             # Project overview (this file)
+├── pyproject.toml        # Build & dependency config
+├── LICENSE               # MIT license
+├── CONTRIBUTING.md       # Contribution guidelines
+```
+
+> For deeper details on modules inside `src/certipy_tool/`, see the `docs/` folder.
+
+---
+
 ## 🧰 Development
 
 * Formatting: `black`
@@ -182,6 +200,7 @@ Repository: [https://github.com/xploitnik/certipy-acl](https://github.com/xploit
 ---
 
 > *This README is formatted for GitHub. Tell me if you want a shorter `README.md`, an expanded usage section with full CLI flags, or examples for CI and GitHub Actions.*
+
 
 
 
