@@ -199,8 +199,6 @@ Repository: [https://github.com/xploitnik/certipy-acl](https://github.com/xploit
 
 ---
 
-> *This README is formatted for GitHub. Tell me if you want a shorter `README.md`, an expanded usage section with full CLI flags, or examples for CI and GitHub Actions.*
-
 
 
 
