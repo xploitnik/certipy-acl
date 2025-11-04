@@ -27,6 +27,8 @@ Prefer Kerberos for OPSEC (avoids passwords in shell history).
 ```bash
 # dev / editable install
 python3 -m venv .venv && source .venv/bin/activate
+
+# Parrot OS -> do command below to install tool once cloned.
 pip install -e .
 
 # Debian/Ubuntu system deps (example)
