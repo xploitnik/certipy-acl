@@ -11,6 +11,8 @@
 ---
 
 ## ✨ Why Certipy-ACL?
+<img width="1191" height="700" alt="image" src="https://github.com/user-attachments/assets/098a04a2-eb13-4cdd-a26a-38d1264d5dec" />
+
 
 * 🔎 **LDAP-first & quiet** — fetches only `nTSecurityDescriptor` for the scope you provide
 * 🎯 **Focused scanning** — filter by trustee SID or limit to a DN/OU
