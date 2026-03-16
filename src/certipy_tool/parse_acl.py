@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import Callable, Iterable, List, Optional, Tuple
+import uuid
 
 try:
     from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
@@ -18,6 +19,7 @@ DS_RIGHTS = {
     0x00000080: "ListObject",
     0x00000100: "ControlAccess",
 }
+
 # === Standard rights ===
 STANDARD_RIGHTS = {
     0x00010000: "Delete",
@@ -27,6 +29,7 @@ STANDARD_RIGHTS = {
     0x00100000: "Synchronize",
     0x01000000: "AccessSystemSecurity",
 }
+
 # === Generic rights ===
 GENERIC_RIGHTS = {
     0x10000000: "GenericAll",
@@ -34,7 +37,9 @@ GENERIC_RIGHTS = {
     0x40000000: "GenericWrite",
     0x80000000: "GenericRead",
 }
+
 RIGHTS = {**DS_RIGHTS, **STANDARD_RIGHTS, **GENERIC_RIGHTS}
+
 ALL_RIGHTS_MASK = 0
 for bit in RIGHTS:
     ALL_RIGHTS_MASK |= bit
@@ -44,8 +49,31 @@ ACE_TYPE_NAMES = {
     0x01: "ACCESS_DENIED",
     0x05: "ACCESS_ALLOWED_OBJECT",
     0x06: "ACCESS_DENIED_OBJECT",
+    0x07: "SYSTEM_AUDIT_OBJECT",
+    0x0B: "ACCESS_ALLOWED_CALLBACK_OBJECT",
+    0x0C: "ACCESS_DENIED_CALLBACK_OBJECT",
+    0x0F: "SYSTEM_AUDIT_CALLBACK_OBJECT",
 }
+
 SE_DACL_PRESENT = 0x0004
+
+# ACE types that may contain ObjectType / InheritedObjectType
+OBJECT_ACE_TYPES = {0x05, 0x06, 0x07, 0x0B, 0x0C, 0x0F}
+
+ACE_OBJECT_TYPE_PRESENT = 0x01
+ACE_INHERITED_OBJECT_TYPE_PRESENT = 0x02
+
+# === Extended Rights GUIDs relevantes para DCSync ===
+EXTENDED_RIGHTS_GUIDS = {
+    "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2": "DS-Replication-Get-Changes",
+    "1131f6ab-9c07-11d1-f79f-00c04fc2dcd2": "DS-Replication-Get-Changes-All",
+    "89e95b76-444d-4c62-991a-0facbeda640c": "DS-Replication-Get-Changes-In-Filtered-Set",
+}
+
+CRITICAL_DCSYNC_GUIDS = {
+    "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2",
+    "1131f6ab-9c07-11d1-f79f-00c04fc2dcd2",
+}
 
 
 def _ace_type_name(t: int) -> str:
@@ -54,12 +82,11 @@ def _ace_type_name(t: int) -> str:
 
 def _mask_to_int(mask_obj) -> int:
     """
-    Convierte impacket.ACCESS_MASK a int de forma a prueba de versiones.
+    Convierte impacket.ACCESS_MASK a int de forma robusta.
     """
-    # 1) Si ya es int, va directo
     if isinstance(mask_obj, int):
         return mask_obj
-    # 2) Algunos exponen .getValue() o .mask
+
     for attr in ("getValue", "mask"):
         try:
             val = getattr(mask_obj, attr)
@@ -71,14 +98,14 @@ def _mask_to_int(mask_obj) -> int:
                 return val
         except Exception:
             pass
-    # 3) Camino robusto: bytes crudos little-endian
+
     try:
-        raw = mask_obj.getData()  # 4 bytes LE
+        raw = mask_obj.getData()
         if isinstance(raw, (bytes, bytearray)) and len(raw) >= 4:
             return int.from_bytes(raw[:4], "little", signed=False)
     except Exception:
         pass
-    # 4) Último recurso: repr/str no es fiable -> error claro
+
     raise TypeError(f"No pude convertir ACCESS_MASK a int: {type(mask_obj)}")
 
 
@@ -100,9 +127,6 @@ def _key_rights(mask: int, bh_compat: bool = True) -> dict:
     has_self = bool(mask & 0x00000008)
     has_gw_derived = bh_compat and (has_writeprop or has_self)
 
-    # === GenericAll "equivalente" por mapeo genérico expandido ===
-    # Conjunto de derechos que, en práctica, implica Full Control sobre objetos DS.
-    # (No exigimos Synchronize ni AccessSystemSecurity.)
     need_ds = (
         (mask & 0x00000001) and  # CreateChild
         (mask & 0x00000002) and  # DeleteChild
@@ -135,22 +159,6 @@ def _format_bool(label: str, val: bool, alt: Optional[str] = None) -> str:
     return f"  - {label}: {('YES' if val else 'NO') if not alt else (alt if val else 'NO')}"
 
 
-def _should_print_ace(mask: int, only_escalation: bool, bh_compat: bool) -> bool:
-    if not only_escalation:
-        return True
-    kk = _key_rights(mask, bh_compat)
-    return any(
-        [
-            kk["WriteOwner"],
-            kk["WriteDACL"],
-            kk["GenericAll_direct"],
-            kk["GenericAll_derived"],
-            kk["GenericWrite_direct"],
-            kk["GenericWrite_derived"],
-        ]
-    )
-
-
 def _resolve_sid_safe(sid: str, resolver: Optional[Callable[[str], str]]) -> str:
     if not resolver:
         return sid
@@ -168,7 +176,6 @@ def _is_dn_under(dn: str, base_dn: str) -> bool:
 
 
 def _get_dacl(sd) -> Optional[object]:
-    # Impacket a veces expone 'Dacl' como key o 'dacl' como propiedad
     try:
         return sd["Dacl"]  # type: ignore[index]
     except Exception:
@@ -176,6 +183,114 @@ def _get_dacl(sd) -> Optional[object]:
             return getattr(sd, "dacl", None)
         except Exception:
             return None
+
+
+def _extract_object_type_guid(ace) -> Optional[str]:
+    """
+    Extrae ObjectType desde ACEs tipo objeto de Impacket.
+    Impacket suele guardarlo como 16 bytes crudos si Flags incluye
+    ACE_OBJECT_TYPE_PRESENT.
+    """
+    try:
+        ace_type = ace["AceType"]
+        if ace_type not in OBJECT_ACE_TYPES:
+            return None
+
+        ace_data = ace["Ace"]
+
+        flags = ace_data["Flags"]
+        if not (flags & ACE_OBJECT_TYPE_PRESENT):
+            return None
+
+        raw = ace_data["ObjectType"]
+
+        if raw in (None, b"", ""):
+            return None
+
+        if isinstance(raw, bytes) and len(raw) == 16:
+            return str(uuid.UUID(bytes_le=raw)).lower()
+
+        if isinstance(raw, bytearray) and len(raw) == 16:
+            return str(uuid.UUID(bytes_le=bytes(raw))).lower()
+
+        if isinstance(raw, str):
+            val = raw.strip().lower()
+            if val and val != "00000000-0000-0000-0000-000000000000":
+                return val
+
+        # Fallback útil por si Impacket expone algo raro
+        try:
+            raw_bytes = bytes(raw)
+            if len(raw_bytes) == 16:
+                return str(uuid.UUID(bytes_le=raw_bytes)).lower()
+        except Exception:
+            pass
+
+        # Último intento con string
+        try:
+            val = str(raw).strip().lower()
+            if val and val != "00000000-0000-0000-0000-000000000000":
+                return val
+        except Exception:
+            pass
+
+    except Exception:
+        pass
+
+    return None
+
+
+def _resolve_extended_right(object_type_guid: Optional[str]) -> Optional[str]:
+    if not object_type_guid:
+        return None
+    return EXTENDED_RIGHTS_GUIDS.get(object_type_guid.lower())
+
+
+def _is_dcsync_guid(object_type_guid: Optional[str]) -> bool:
+    if not object_type_guid:
+        return False
+    return object_type_guid.lower() in CRITICAL_DCSYNC_GUIDS
+
+
+def _is_object_ace_with_control_access(ace) -> bool:
+    """
+    Detecta ACEs objeto cuyo mask contiene ControlAccess (0x100).
+    Útil para depuración si el GUID no se logra resolver.
+    """
+    try:
+        ace_type = ace["AceType"]
+        if ace_type not in OBJECT_ACE_TYPES:
+            return False
+        mask = _mask_to_int(ace["Ace"]["Mask"])
+        return bool(mask & 0x00000100)
+    except Exception:
+        return False
+
+
+def _should_print_ace(
+    mask: int,
+    only_escalation: bool,
+    bh_compat: bool,
+    object_type_guid: Optional[str] = None,
+) -> bool:
+    if not only_escalation:
+        return True
+
+    kk = _key_rights(mask, bh_compat)
+    has_classic_escalation = any(
+        [
+            kk["WriteOwner"],
+            kk["WriteDACL"],
+            kk["GenericAll_direct"],
+            kk["GenericAll_derived"],
+            kk["GenericWrite_direct"],
+            kk["GenericWrite_derived"],
+        ]
+    )
+
+    has_dcsync = bool(object_type_guid and object_type_guid in CRITICAL_DCSYNC_GUIDS)
+
+    return has_classic_escalation or has_dcsync
 
 
 def parse_acl_entries(
@@ -208,9 +323,17 @@ def parse_acl_entries(
 
                 mask = _mask_to_int(ace["Ace"]["Mask"])
                 acetype = ace["AceType"]
+                object_type_guid = _extract_object_type_guid(ace)
+                extended_right = _resolve_extended_right(object_type_guid)
+                is_dcsync = _is_dcsync_guid(object_type_guid)
+                is_control_access_object_ace = _is_object_ace_with_control_access(ace)
 
-                if not _should_print_ace(mask, only_escalation, bh_compat):
-                    continue
+                if only_escalation:
+                    if not (
+                        _should_print_ace(mask, only_escalation, bh_compat, object_type_guid)
+                        or is_control_access_object_ace
+                    ):
+                        continue
 
                 printed = True
                 rights = _decode_rights(mask)
@@ -222,12 +345,29 @@ def parse_acl_entries(
                 resolved = _resolve_sid_safe(sid, resolve_sid)
                 print(f"    Resolved SID:   {resolved}")
                 print(f"    Mask (hex):     {hex(mask)}")
+                print(f"    ObjectType:     {object_type_guid or 'N/A'}")
+
+                try:
+                    print(f"    ACE Flags:      {hex(ace['Ace']['Flags'])}")
+                except Exception:
+                    print("    ACE Flags:      N/A")
+
+                if extended_right:
+                    print(f"    ExtendedRight:  {extended_right}")
+
+                if is_dcsync:
+                    print("    [!] DCSync-capable permission detected")
+
+                if is_control_access_object_ace and not extended_right:
+                    print("    [i] Object ACE con ControlAccess detectado, pero el GUID no se resolvió todavía.")
+
                 print("    Rights:")
                 if rights:
                     for r in rights:
                         print(f"      ✅ {r}")
                 else:
-                    print("      – (no se reconocieron derechos en esta máscara)")
+                    print("      – (no se reconocieron derechos clásicos en esta máscara)")
+
                 if unknown_bits:
                     print(f"      … Bits desconocidos: {hex(unknown_bits)}")
 
@@ -235,21 +375,29 @@ def parse_acl_entries(
                 print("    Key rights (quick check):")
                 print(_format_bool("  WriteOwner", kk["WriteOwner"]))
                 print(_format_bool("  WriteDACL", kk["WriteDACL"]))
+
                 if kk["GenericAll_direct"]:
                     print(_format_bool("  GenericAll", True, "YES (direct)"))
                 elif kk["GenericAll_derived"]:
                     print(_format_bool("  GenericAll", True, "YES (equivalent)"))
                 else:
                     print(_format_bool("  GenericAll", False))
+
                 if kk["GenericWrite_direct"]:
                     print(_format_bool("  GenericWrite", True, "YES (direct)"))
                 elif kk["GenericWrite_derived"]:
                     print(_format_bool("  GenericWrite", True, "YES (derived)"))
                 else:
                     print(_format_bool("  GenericWrite", False))
+
                 if (not kk["GenericWrite_direct"]) and kk["GenericWrite_derived"]:
                     print("    [i] GenericWrite (derived) inferido por WriteProperty/Self (compatibilidad BH).")
+
+                if is_dcsync:
+                    print("    [i] Este ACE concede permisos de replicación críticos sobre el objeto dominio.")
+
                 print("")
+
             except Exception as e:
                 print(f"    [!] Error al procesar ACE: {e}")
 
