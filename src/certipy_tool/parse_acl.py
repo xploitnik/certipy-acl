@@ -63,16 +63,31 @@ OBJECT_ACE_TYPES = {0x05, 0x06, 0x07, 0x0B, 0x0C, 0x0F}
 ACE_OBJECT_TYPE_PRESENT = 0x01
 ACE_INHERITED_OBJECT_TYPE_PRESENT = 0x02
 
-# === Extended Rights GUIDs relevantes para DCSync ===
+# === Extended Rights GUIDs ===
 EXTENDED_RIGHTS_GUIDS = {
+    # DCSync-related
     "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2": "DS-Replication-Get-Changes",
     "1131f6ab-9c07-11d1-f79f-00c04fc2dcd2": "DS-Replication-Get-Changes-All",
     "89e95b76-444d-4c62-991a-0facbeda640c": "DS-Replication-Get-Changes-In-Filtered-Set",
+
+    # Password reset / BloodHound ForceChangePassword
+    "00299570-246d-11d0-a768-00aa006e0529": "User-Force-Change-Password",
 }
 
 CRITICAL_DCSYNC_GUIDS = {
     "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2",
     "1131f6ab-9c07-11d1-f79f-00c04fc2dcd2",
+}
+
+FORCE_CHANGE_PASSWORD_GUIDS = {
+    "00299570-246d-11d0-a768-00aa006e0529",
+}
+
+FRIENDLY_OBJECT_TYPE_LABELS = {
+    "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2": "DCSync",
+    "1131f6ab-9c07-11d1-f79f-00c04fc2dcd2": "DCSync",
+    "89e95b76-444d-4c62-991a-0facbeda640c": "DCSync-Filtered-Set",
+    "00299570-246d-11d0-a768-00aa006e0529": "ForceChangePassword",
 }
 
 
@@ -128,20 +143,20 @@ def _key_rights(mask: int, bh_compat: bool = True) -> dict:
     has_gw_derived = bh_compat and (has_writeprop or has_self)
 
     need_ds = (
-        (mask & 0x00000001) and  # CreateChild
-        (mask & 0x00000002) and  # DeleteChild
-        (mask & 0x00000004) and  # ListChildren
-        (mask & 0x00000010) and  # ReadProperty
-        (mask & 0x00000020) and  # WriteProperty
-        (mask & 0x00000040) and  # DeleteTree
-        (mask & 0x00000080) and  # ListObject
-        (mask & 0x00000100)      # ControlAccess
+        (mask & 0x00000001) and
+        (mask & 0x00000002) and
+        (mask & 0x00000004) and
+        (mask & 0x00000010) and
+        (mask & 0x00000020) and
+        (mask & 0x00000040) and
+        (mask & 0x00000080) and
+        (mask & 0x00000100)
     )
     need_std = (
-        (mask & 0x00010000) and  # Delete
-        (mask & 0x00020000) and  # ReadControl
-        (mask & 0x00040000) and  # WriteDACL
-        (mask & 0x00080000)      # WriteOwner
+        (mask & 0x00010000) and
+        (mask & 0x00020000) and
+        (mask & 0x00040000) and
+        (mask & 0x00080000)
     )
     has_generic_all_derived = bool(need_ds and need_std)
 
@@ -218,7 +233,6 @@ def _extract_object_type_guid(ace) -> Optional[str]:
             if val and val != "00000000-0000-0000-0000-000000000000":
                 return val
 
-        # Fallback útil por si Impacket expone algo raro
         try:
             raw_bytes = bytes(raw)
             if len(raw_bytes) == 16:
@@ -226,7 +240,6 @@ def _extract_object_type_guid(ace) -> Optional[str]:
         except Exception:
             pass
 
-        # Último intento con string
         try:
             val = str(raw).strip().lower()
             if val and val != "00000000-0000-0000-0000-000000000000":
@@ -246,10 +259,22 @@ def _resolve_extended_right(object_type_guid: Optional[str]) -> Optional[str]:
     return EXTENDED_RIGHTS_GUIDS.get(object_type_guid.lower())
 
 
+def _resolve_friendly_object_label(object_type_guid: Optional[str]) -> Optional[str]:
+    if not object_type_guid:
+        return None
+    return FRIENDLY_OBJECT_TYPE_LABELS.get(object_type_guid.lower())
+
+
 def _is_dcsync_guid(object_type_guid: Optional[str]) -> bool:
     if not object_type_guid:
         return False
     return object_type_guid.lower() in CRITICAL_DCSYNC_GUIDS
+
+
+def _is_force_change_password_guid(object_type_guid: Optional[str]) -> bool:
+    if not object_type_guid:
+        return False
+    return object_type_guid.lower() in FORCE_CHANGE_PASSWORD_GUIDS
 
 
 def _is_object_ace_with_control_access(ace) -> bool:
@@ -288,9 +313,12 @@ def _should_print_ace(
         ]
     )
 
-    has_dcsync = bool(object_type_guid and object_type_guid in CRITICAL_DCSYNC_GUIDS)
+    has_dcsync = bool(object_type_guid and object_type_guid.lower() in CRITICAL_DCSYNC_GUIDS)
+    has_force_change_password = bool(
+        object_type_guid and object_type_guid.lower() in FORCE_CHANGE_PASSWORD_GUIDS
+    )
 
-    return has_classic_escalation or has_dcsync
+    return has_classic_escalation or has_dcsync or has_force_change_password
 
 
 def parse_acl_entries(
@@ -325,7 +353,10 @@ def parse_acl_entries(
                 acetype = ace["AceType"]
                 object_type_guid = _extract_object_type_guid(ace)
                 extended_right = _resolve_extended_right(object_type_guid)
+                friendly_object_label = _resolve_friendly_object_label(object_type_guid)
+
                 is_dcsync = _is_dcsync_guid(object_type_guid)
+                is_force_change_password = _is_force_change_password_guid(object_type_guid)
                 is_control_access_object_ace = _is_object_ace_with_control_access(ace)
 
                 if only_escalation:
@@ -355,8 +386,14 @@ def parse_acl_entries(
                 if extended_right:
                     print(f"    ExtendedRight:  {extended_right}")
 
+                if friendly_object_label:
+                    print(f"    BloodHound:   {friendly_object_label}")
+
                 if is_dcsync:
                     print("    [!] DCSync-capable permission detected")
+
+                if is_force_change_password:
+                    print("    [!] ForceChangePassword-capable permission detected")
 
                 if is_control_access_object_ace and not extended_right:
                     print("    [i] Object ACE con ControlAccess detectado, pero el GUID no se resolvió todavía.")
@@ -395,6 +432,9 @@ def parse_acl_entries(
 
                 if is_dcsync:
                     print("    [i] Este ACE concede permisos de replicación críticos sobre el objeto dominio.")
+
+                if is_force_change_password:
+                    print("    [i] Este ACE concede Reset Password / ForceChangePassword sobre el objeto usuario.")
 
                 print("")
 
