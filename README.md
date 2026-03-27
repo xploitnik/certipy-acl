@@ -66,8 +66,7 @@ certipy-acl -u $user@$domain -p $psswd -dc-ip $target
 
 ###  Filter by SID (focus on your user)
 ```bash
-certipy-acl -u $user@$domain -p $psswd -dc-ip $target \
-  --filter-sid $target_sid --resolve-sid 
+certipy-acl --auth ntlm  -u $user@$domain.htb -p $psswd -d $domain.htb --dc-ip $target --filter-sid $target_sid --resolve-sid
 ```
 
 ###  Limit scope to a DN
