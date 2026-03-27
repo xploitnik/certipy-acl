@@ -1,21 +1,4 @@
-## 🧩 SID Requirement
-
-Certipy-ACL operates on SIDs (Security Identifiers).  
-You are expected to obtain valid SIDs during enumeration.
-
-Common methods:
-
-### 🔹 Impacket
-```bash
-lookupsid.py $domain/$user:$psswd@target
-```
-
-<img width="1108" height="657" alt="image" src="https://github.com/user-attachments/assets/3d046a7b-d035-4d15-9a5a-b96184809532" />
-
-
-
-
-# 🔐 Certipy-ACL
+#  Certipy-ACL
 
 > LDAP-first ACL enumeration for real privilege escalation paths.
 
@@ -34,16 +17,30 @@ It surfaces **real attack paths** like:
 <img width="1191" height="700" alt="image" src="https://github.com/user-attachments/assets/098a04a2-eb13-4cdd-a26a-38d1264d5dec" />
 
 
-## ⚡ Why use this?
+## Why use this?
 
-- 🧠 **Attack-focused output** — shows what you can actually abuse
-- 🔇 **Quiet enumeration** — minimal LDAP noise
-- 🎯 **Targeted scanning** — filter by SID or DN
-- 🔗 **BloodHound-aligned** — same privilege concepts, live from LDAP
+-  **Attack-focused output** — shows what you can actually abuse
+-  **Quiet enumeration** — minimal LDAP noise
+-  **Targeted scanning** — filter by SID or DN
+-  **BloodHound-aligned** — same privilege concepts, live from LDAP
 
 ---
 
-## 🚀 Quick Start
+## 🧩 SID Requirement
+
+Certipy-ACL operates on SIDs (Security Identifiers).  
+You are expected to obtain valid SIDs during enumeration.
+
+Common methods:
+
+### 🔹 Impacket
+```bash
+lookupsid.py $domain/$user:$psswd@target
+```
+
+<img width="1108" height="657" alt="image" src="https://github.com/user-attachments/assets/3d046a7b-d035-4d15-9a5a-b96184809532" />
+
+##  Quick Start
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/certipy-acl.git
@@ -57,33 +54,33 @@ pip install -e .
 
 ---
 
-## 🧪 Usage
+##  Usage
 
-### 🔍 Basic enumeration
+###  Basic enumeration
 ```bash
 certipy-acl -u $user@$domain -p $psswd -dc-ip $target
 ```
 
-### 🎯 Filter by SID (focus on your user)
+###  Filter by SID (focus on your user)
 ```bash
 certipy-acl -u $user@$domain -p $psswd -dc-ip $target \
   --filter-sid $target_sid
 ```
 
-### 🎯 Limit scope to a DN
+###  Limit scope to a DN
 ```bash
 certipy-acl -u $user@$domain -p $psswd -dc-ip $target \
   --target-dn "CN=Users,DC=domain,DC=local"
 ```
 
-### 🔥 Show only escalation paths
+###  Show only escalation paths
 ```bash
 certipy-acl ... --only-escalation
 ```
 
 ---
 
-## 🔥 Example Output
+##  Example Output
 
 ```text
 certipy-acl --auth ntlm  -u $user@$domain.htb -p $psswd -d $domain.htb --dc-ip $target --filter-sid $michael_sid --resolve-sid
@@ -93,7 +90,7 @@ certipy-acl --auth ntlm  -u $user@$domain.htb -p $psswd -d $domain.htb --dc-ip $
 michael → can reset password of → Benjamin Brown
 
 
-## 🔐 Supported Privileges
+##  Supported Privileges
 
 | Privilege | Meaning |
 |----------|--------|
@@ -107,14 +104,14 @@ michael → can reset password of → Benjamin Brown
 
 ---
 
-## ⚙️ Auth Options
+##  Auth Options
 
 - NTLM (user + password)
 - Kerberos (recommended for OPSEC)
 
 ---
 
-## 🧪 OPSEC Tip
+##  OPSEC Tip
 
 Use Kerberos whenever possible:
 
@@ -125,7 +122,7 @@ certipy-acl -k ...
 
 ---
 
-## 🎯 Goal
+##  Goal
 
 Certipy-ACL is built to answer one question:
 
@@ -133,7 +130,7 @@ Certipy-ACL is built to answer one question:
 
 ---
 
-## 🧑‍💻 Author
+## Author
 
 Built for red teamers, CTF players, and operators who want **signal over noise**.
 
