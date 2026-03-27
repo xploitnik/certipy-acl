@@ -39,6 +39,10 @@ lookupsid.py $domain/$user:$psswd@target
 ```
 <img width="600" height="1010" alt="image" src="https://github.com/user-attachments/assets/d1acabed-b67f-42f5-a94b-94e6b73ae1fc" />
 
+## SID Example
+<img width="600" height="169" alt="image" src="https://github.com/user-attachments/assets/c58d3050-3b95-490b-891b-6265c999d8ce" />
+
+
 ##  Quick Start
 
 ```bash
@@ -52,10 +56,6 @@ pip install -e .
 ```
 
 ---
-
-## SID Example
-<img width="600" height="192" alt="image" src="https://github.com/user-attachments/assets/dad576c6-4597-4d22-bb31-53a0825e64d0" />
-
 
 ##  Usage
 
@@ -89,7 +89,7 @@ certipy-acl ... --only-escalation
 certipy-acl --auth ntlm  -u $user@$domain.htb -p $psswd -d $domain.htb --dc-ip $target --filter-sid $taget_sid --resolve-sid
 ```
 
-<img width="1322" height="627" alt="image" src="https://github.com/user-attachments/assets/cbc36799-bdd9-436e-9075-0efae73a951d" />
+<img width="1322" height="600" alt="image" src="https://github.com/user-attachments/assets/cbc36799-bdd9-436e-9075-0efae73a951d" />
 michael → can reset password of → Benjamin Brown
 
 
