@@ -5,24 +5,19 @@ Certipy-ACL is a focused enumeration tool that queries and parses `nTSecurityDes
 
 It identifies privilege escalation primitives such as:
 
-- WriteOwner
-- WriteDACL
-- GenericAll / GenericWrite
-- AddSelf
-- DCSync
-- ForceChangePassword
+| Privilege | Meaning |
+|----------|--------|
+| WriteOwner | Take ownership |
+| WriteDACL | Modify permissions |
+| GenericAll | Full control |
+| GenericWrite | Modify attributes |
+| AddSelf | Add to group |
+| DCSync | Replicate domain secrets |
+| ForceChangePassword | Reset user password |
 
 ---
 
 <img width="1191" height="700" alt="image" src="https://github.com/user-attachments/assets/098a04a2-eb13-4cdd-a26a-38d1264d5dec" />
-
-
-## Why use this?
-
--  **Attack-focused output** — shows what you can actually abuse
--  **Quiet enumeration** — minimal LDAP noise
--  **Targeted scanning** — filter by SID or DN
--  **BloodHound-aligned** — same privilege concepts, live from LDAP
 
 ---
 
@@ -54,6 +49,14 @@ certipy-acl --auth ntlm  -u $user@$domain.htb -p $psswd -d $domain.htb --dc-ip $
 <img width="625" height="441" alt="image" src="https://github.com/user-attachments/assets/05712971-53ca-4558-8095-affbe4d02ea2" />
 
 michael → can reset password of → Benjamin Brown
+
+
+## Why use this?
+
+-  **Attack-focused output** — shows what you can actually abuse
+-  **Quiet enumeration** — minimal LDAP noise
+-  **Targeted scanning** — filter by SID or DN
+-  **BloodHound-aligned** — same privilege concepts, live from LDAP
 
 
 
@@ -95,18 +98,6 @@ certipy-acl ... --only-escalation
 ```
 
 ---
-
-##  Supported Privileges
-
-| Privilege | Meaning |
-|----------|--------|
-| WriteOwner | Take ownership |
-| WriteDACL | Modify permissions |
-| GenericAll | Full control |
-| GenericWrite | Modify attributes |
-| AddSelf | Add to group |
-| DCSync | Replicate domain secrets |
-| ForceChangePassword | Reset user password |
 
 ---
 
