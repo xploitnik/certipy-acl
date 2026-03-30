@@ -1,16 +1,8 @@
-#  Certipy-ACL
+# Certipy-ACL
 
-> LDAP-first ACL enumeration for real privilege escalation paths.
+LDAP-First ACL Enumeration for Active Directory
 
-Certipy-ACL is a focused tool for enumerating Active Directory ACLs by reading only `nTSecurityDescriptor`.  
-It surfaces **real attack paths** like:
-
-- WriteOwner
-- WriteDACL
-- GenericAll / GenericWrite
-- AddSelf
-- DCSync
-- ForceChangePassword
+Certipy-ACL retrieves and parses `nTSecurityDescriptor` over LDAP, evaluates ACEs, and resolves actionable ACL abuse rights without requiring broad directory collection.
 
 ---
 
