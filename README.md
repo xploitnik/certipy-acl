@@ -1,8 +1,16 @@
-# Certipy-ACL
+## Certipy-ACL
+LDAP-first ACL enumeration for identifying actionable privilege escalation paths in Active Directory.
 
-LDAP-First ACL Enumeration for Active Directory
+Certipy-ACL is a focused enumeration tool that queries and parses `nTSecurityDescriptor` over LDAP to resolve effective ACL abuse rights without relying on broad object collection.
 
-Certipy-ACL retrieves and parses `nTSecurityDescriptor` over LDAP, evaluates ACEs, and resolves actionable ACL abuse rights without requiring broad directory collection.
+It identifies privilege escalation primitives such as:
+
+- WriteOwner
+- WriteDACL
+- GenericAll / GenericWrite
+- AddSelf
+- DCSync
+- ForceChangePassword
 
 ---
 
@@ -18,14 +26,14 @@ Certipy-ACL retrieves and parses `nTSecurityDescriptor` over LDAP, evaluates ACE
 
 ---
 
-## 🧩 SID Requirement
+## PoC
 
 Certipy-ACL operates on SIDs (Security Identifiers).  
 You are expected to obtain valid SIDs during enumeration.
 
 Common methods:
 
-### 🔹 Impacket
+### 🔹 Impacket-lookup.sid
 ```bash
 lookupsid.py $domain.htb/$user:$psswd@$target
 ```
@@ -33,6 +41,20 @@ lookupsid.py $domain.htb/$user:$psswd@$target
 
 ## SID Example
 <img width="600" height="169" alt="image" src="https://github.com/user-attachments/assets/c58d3050-3b95-490b-891b-6265c999d8ce" />
+
+##  Example Syntax
+
+```text
+certipy-acl --auth ntlm  -u $user@$domain.htb -p $psswd -d $domain.htb --dc-ip $target --filter-sid $taget_sid --resolve-sid
+```
+
+<img width="1322" height="600" alt="image" src="https://github.com/user-attachments/assets/cbc36799-bdd9-436e-9075-0efae73a951d" />
+
+## BloodHound Data
+<img width="625" height="441" alt="image" src="https://github.com/user-attachments/assets/05712971-53ca-4558-8095-affbe4d02ea2" />
+
+michael → can reset password of → Benjamin Brown
+
 
 
 ##  Quick Start
@@ -73,16 +95,6 @@ certipy-acl ... --only-escalation
 ```
 
 ---
-
-##  Example Output
-
-```text
-certipy-acl --auth ntlm  -u $user@$domain.htb -p $psswd -d $domain.htb --dc-ip $target --filter-sid $taget_sid --resolve-sid
-```
-
-<img width="1322" height="600" alt="image" src="https://github.com/user-attachments/assets/cbc36799-bdd9-436e-9075-0efae73a951d" />
-michael → can reset password of → Benjamin Brown
-
 
 ##  Supported Privileges
 
