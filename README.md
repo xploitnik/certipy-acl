@@ -17,7 +17,7 @@ It identifies privilege escalation primitives such as:
 
 ---
 
-<img width="1191" height="700" alt="image" src="https://github.com/user-attachments/assets/098a04a2-eb13-4cdd-a26a-38d1264d5dec" />
+<img width="600" height="700" alt="image" src="https://github.com/user-attachments/assets/098a04a2-eb13-4cdd-a26a-38d1264d5dec" />
 
 ---
 
@@ -35,7 +35,7 @@ lookupsid.py $domain.htb/$user:$psswd@$target
 <img width="600" height="1010" alt="image" src="https://github.com/user-attachments/assets/d1acabed-b67f-42f5-a94b-94e6b73ae1fc" />
 
 ## SID Example
-<img width="600" height="169" alt="image" src="https://github.com/user-attachments/assets/c58d3050-3b95-490b-891b-6265c999d8ce" />
+<img width="500" height="169" alt="image" src="https://github.com/user-attachments/assets/c58d3050-3b95-490b-891b-6265c999d8ce" />
 
 ##  Example Syntax
 
