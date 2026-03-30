@@ -81,7 +81,7 @@ pip install -e .
 certipy-acl -u $user@$domain -p $psswd -dc-ip $target
 ```
 
-###  Filter by SID (focus on your user)
+###  Filter by SID (Recommended - scope ACL by Domain SID and RID)
 ```bash
 certipy-acl --auth ntlm  -u $user@$domain.htb -p $psswd -d $domain.htb --dc-ip $target --filter-sid $target_sid --resolve-sid
 ```
